@@ -146,13 +146,16 @@ const analyzeData = (data) => {
     const date = row.FACT_FECHA || row.FECHA;
     const time = row.HORA;
     const city = (row.CIUDAD || row.ciudad || 'Sin Ciudad').toUpperCase();
+    
     const invoiceVal = cleanNumber(row.FACT_VALOR); 
+    // NUEVO: Capturamos el valor individual del producto para no duplicar ventas al hacer Mix de Categorías
+    const prodVal = cleanNumber(row.EDFP_VALOR_PROD || row.VALOR_PRODUCTO || 0);
     const dayRaw = row.DIA || row.dia; 
 
     if (!rawCod || !prod) return;
     const cod = `${chain}_${rawCod}`; 
     
-    cleanRows.push({...row, CIUDAD_CLEAN: city, CAT_CLEAN: cat, COD_UNICO: cod, CHAIN_CLEAN: chain, PROD_CLEAN: prod, VAL_CLEAN: invoiceVal, TIME_CLEAN: time, DATE_CLEAN: date, DAY_CLEAN: dayRaw}); 
+    cleanRows.push({...row, CIUDAD_CLEAN: city, CAT_CLEAN: cat, SUBCAT_CLEAN: subcat, COD_UNICO: cod, CHAIN_CLEAN: chain, PROD_CLEAN: prod, VAL_CLEAN: invoiceVal, PROD_VAL_CLEAN: prodVal, TIME_CLEAN: time, DATE_CLEAN: date, DAY_CLEAN: dayRaw}); 
     
     chains.add(chain);
     uniqueCitiesSet.add(city);
@@ -229,6 +232,7 @@ const analyzeData = (data) => {
   const getAvg = (invSet) => { let sum = 0; invSet.forEach(c => sum += (invoiceTotals[c] || 0)); return invSet.size > 0 ? sum / invSet.size : 0; };
   const getTopList = (obj) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x => ({name: x[0], value: x[1]}));
   const getAffinityPercentageList = (obj, totalBaseInvoices) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x => ({name: x[0], value: totalBaseInvoices > 0 ? (x[1] / totalBaseInvoices) * 100 : 0}));
+  const getAvgBasketSize = (invSet) => { let sum = 0; invSet.forEach(c => sum += (invoiceProductsList[c] ? invoiceProductsList[c].length : 0)); return invSet.size > 0 ? sum / invSet.size : 0; };
 
   const totalHarinasCount = scope.harinas.trigoCount + scope.harinas.maizCount + scope.harinas.otrasCount;
   
@@ -244,6 +248,7 @@ const analyzeData = (data) => {
       mix: harinasMix,
       avgTicket: getAvg(scope.harinas.invoices),
       avgItems: scope.harinas.invoices.size > 0 ? totalHarinasCount / scope.harinas.invoices.size : 0,
+      basketSize: getAvgBasketSize(scope.harinas.invoices),
       peakHour: getHourRange(getPeakHourKey(scope.harinas.hours)),
       peakDay: getPeakDayKey(scope.harinas.days),
       topTrigoAff: getAffinityPercentageList(scope.harinas.trigoAffinity, scope.harinas.trigoInvoices.size),
@@ -253,6 +258,7 @@ const analyzeData = (data) => {
       penetration: totalInvoicesCount ? (scope.pastas.invoices.size / totalInvoicesCount) * 100 : 0,
       avgTicket: getAvg(scope.pastas.invoices),
       avgItems: scope.pastas.invoices.size > 0 ? scope.pastas.count / scope.pastas.invoices.size : 0,
+      basketSize: getAvgBasketSize(scope.pastas.invoices),
       peakHour: getHourRange(getPeakHourKey(scope.pastas.hours)),
       topAff: getAffinityPercentageList(scope.pastas.affinity, scope.pastas.invoices.size)
     }
@@ -441,15 +447,18 @@ export default function App() {
     let totalRevenue = 0;
     let totalItems = 0;
     const categoriesCount = {};
+    const subcategoriesCount = {};
     const productsCount = {};
     const catProducts = {};
 
     filteredRows.forEach(row => {
       const cod = row.COD_UNICO;
       const cat = row.CAT_CLEAN;
+      const subcat = row.SUBCAT_CLEAN || 'Sin Subcategoría';
       const prod = row.PROD_CLEAN;
       
       categoriesCount[cat] = (categoriesCount[cat] || 0) + 1;
+      subcategoriesCount[subcat] = (subcategoriesCount[subcat] || 0) + 1;
       productsCount[prod] = (productsCount[prod] || 0) + 1;
 
       if (!catProducts[cat]) catProducts[cat] = {};
@@ -524,7 +533,7 @@ export default function App() {
         name, value, percentage: totalItems > 0 ? (value / totalItems) * 100 : 0
     }));
 
-    const penetration = Object.entries(categoriesCount)
+    const topSubcategories = Object.entries(subcategoriesCount)
       .map(([name, count]) => ({ name, count, percentage: totalItems > 0 ? (count / totalItems) * 100 : 0 }))
       .sort((a,b) => b.percentage - a.percentage).slice(0, 10);
 
@@ -534,7 +543,7 @@ export default function App() {
       totalInvoices,
       topCategories,
       topProducts,
-      penetration,
+      topSubcategories,
       kpis
     };
   }, [data, selectedChain, selectedCity, selectedCategory]);
@@ -669,7 +678,7 @@ export default function App() {
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
   // --------------------------------------------------------------------------------
-  // CÁLCULO DINÁMICO CAPÍTULO 2 (Mix Categorías - Contando Unidades, No Dinero)
+  // CÁLCULO DINÁMICO CAPÍTULO 2 (Mix Categorías - Contando DINERO de los productos)
   // --------------------------------------------------------------------------------
   const chart1Data = useMemo(() => {
     if (!data) return null;
@@ -683,11 +692,12 @@ export default function App() {
     filteredRows.forEach(r => {
       const xCol = r.CHAIN_CLEAN || 'Sin Cadena'; 
       const seg = r.CAT_CLEAN || 'Sin Categoría'; 
+      const val = r.PROD_VAL_CLEAN || 0; // Usamos el valor individual en dinero del producto
       
-      xTotals[xCol] = (xTotals[xCol] || 0) + 1;
+      xTotals[xCol] = (xTotals[xCol] || 0) + val;
       if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
-      xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + 1;
-      globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + 1;
+      xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
+      globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
     });
 
     const topSegments = Object.entries(globalSegmentCount).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x=>x[0]);
@@ -728,11 +738,12 @@ export default function App() {
     filteredRows.forEach(r => {
       const xCol = r.CIUDAD_CLEAN || 'Sin Ciudad'; 
       const seg = r.CAT_CLEAN || 'Sin Categoría'; 
+      const val = r.PROD_VAL_CLEAN || 0; // Usamos el valor individual en dinero del producto
       
-      xTotals[xCol] = (xTotals[xCol] || 0) + 1;
+      xTotals[xCol] = (xTotals[xCol] || 0) + val;
       if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
-      xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + 1;
-      globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + 1;
+      xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
+      globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
     });
 
     const topSegments = Object.entries(globalSegmentCount).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x=>x[0]);
@@ -940,11 +951,11 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Mix de Categorías */}
+                      {/* Top 10 Subcategorías */}
                     <div className="col-span-1">
-                      <div className="flex items-center gap-2 mb-4"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Mix de Categorías (Top 10)</h3></div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta categoría:</p>
-                      <div>{chapter1Stats.penetration.map((cat, idx) => <ProgressBar key={idx} label={cat.name} value={cat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
+                      <div className="flex items-center gap-2 mb-4"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 10 Subcategorías</h3></div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta subcategoría:</p>
+                      <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
                     </div>
                   </div>
                   
@@ -988,28 +999,28 @@ export default function App() {
                 <PercentageStackedBarChart 
                   chartData={chart1Data} 
                   title="Mix de Categorías por Cadena" 
-                  description="Distribución porcentual de unidades vendidas por categoría en cada supermercado."
+                  description="Distribución porcentual de los ingresos (dinero) por categoría en cada supermercado."
                   icon={BarChart} 
                   filterLabel="Filtrar por Ciudad"
                   filterValue={filterCityForChart1} 
                   setFilterValue={setFilterCityForChart1} 
                   filterOptions={data.cityList} 
                   defaultFilterText="TODAS LAS CIUDADES"
-                  valueSuffix="unid."
+                  isCurrency={true}
                 />
 
                 {/* GRÁFICA 2 */}
                 <PercentageStackedBarChart 
                   chartData={chart2Data} 
                   title="Distribución de Ventas por Ciudad" 
-                  description="Mix porcentual de unidades vendidas observando una Cadena específica a través de las ciudades."
+                  description="Mix porcentual de ingresos (dinero) por categoría observando una Cadena específica a través de las ciudades."
                   icon={Map} 
                   filterLabel="Filtrar por Cadena"
                   filterValue={filterChainForChart2} 
                   setFilterValue={setFilterChainForChart2} 
                   filterOptions={data.chainList} 
                   defaultFilterText="TODAS LAS CADENAS"
-                  valueSuffix="unid."
+                  isCurrency={true}
                 />
               </div>
             </section>
@@ -1032,22 +1043,27 @@ export default function App() {
                   </div>
 
                   <div className="flex gap-2 sm:gap-4 mb-8 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex-wrap">
-                    <div className="flex-1 text-center min-w-[70px]">
+                    <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.harinas.avgTicket)}</p>
                     </div>
                     <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[70px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Ítem Prom.</p>
+                    <div className="flex-1 text-center min-w-[80px]">
+                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Paquetes de harina promedio">Ítems Harina</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.harinas.avgItems)}</p>
                     </div>
                     <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[70px]">
+                    <div className="flex-1 text-center min-w-[80px]">
+                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Total de ítems en toda la factura (Canasta)">Total Canasta</p>
+                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.harinas.basketSize)}</p>
+                    </div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.harinas.peakHour}</p>
                     </div>
                     <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[70px]">
+                    <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p>
                       <p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400">{data.deepDive.harinas.peakDay}</p>
                     </div>
@@ -1104,12 +1120,17 @@ export default function App() {
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.pastas.avgTicket)}</p>
                     </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
                     <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Ítem Prom.</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Paquetes de pasta promedio">Ítems Pasta</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.avgItems)}</p>
                     </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]">
+                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Total de ítems en toda la factura (Canasta)">Total Canasta</p>
+                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.basketSize)}</p>
+                    </div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
                     <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.pastas.peakHour}</p>

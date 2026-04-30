@@ -142,7 +142,7 @@ const analyzeData = (data) => {
     const rawCod = row.FACT_CODIGO || row.FACT_NROFACTURA; 
     const chain = row.FACT_NOM_EST || 'Sin Cadena Identificada';
     const prod = row.EDFP_NOMBRE_PROD || row.Producto;
-    const cat = row.CATEGORIA || row.categoria || 'Sin Categoría';
+    const cat = row.CATEGORIA || row.categoria || 'Sin Canasta';
     const subcat = row.SUBCATEGORIA || row.subcategoria || ''; 
     const date = row.FACT_FECHA || row.FECHA;
     const time = row.HORA;
@@ -154,7 +154,7 @@ const analyzeData = (data) => {
 
     if (!rawCod || !prod) return;
     const cod = `${chain}_${rawCod}`; 
-    const subcatClean = subcat || 'Sin Subcategoría';
+    const subcatClean = subcat || 'Sin Categoría';
     
     cleanRows.push({...row, CIUDAD_CLEAN: city, CAT_CLEAN: cat, SUBCAT_CLEAN: subcatClean, COD_UNICO: cod, CHAIN_CLEAN: chain, PROD_CLEAN: prod, VAL_CLEAN: invoiceVal, PROD_VAL_CLEAN: prodVal, TIME_CLEAN: time, DATE_CLEAN: date, DAY_CLEAN: dayRaw}); 
     
@@ -229,7 +229,7 @@ const analyzeData = (data) => {
     
     subcats.forEach(sub => {
       const subUp = String(sub).toUpperCase();
-      if (subUp === 'SIN SUBCATEGORÍA') return;
+      if (subUp === 'SIN CATEGORÍA') return;
       
       // Aseguramos que no se crucen consigo mismas (ej. Harinas con Harinas)
       if (isHarinaTrigoInv && !subUp.includes('HARINA')) scope.harinas.trigoAffinity[sub] = (scope.harinas.trigoAffinity[sub] || 0) + 1;
@@ -465,7 +465,7 @@ export default function App() {
     filteredRows.forEach(row => {
       const cod = row.COD_UNICO;
       const cat = row.CAT_CLEAN;
-      const subcat = row.SUBCAT_CLEAN || 'Sin Subcategoría';
+      const subcat = row.SUBCAT_CLEAN || 'Sin Categoría';
       const prod = row.PROD_CLEAN;
       
       categoriesCount[cat] = (categoriesCount[cat] || 0) + 1;
@@ -702,7 +702,7 @@ export default function App() {
 
     filteredRows.forEach(r => {
       const xCol = r.CHAIN_CLEAN || 'Sin Cadena'; 
-      const seg = r.CAT_CLEAN || 'Sin Categoría'; 
+      const seg = r.CAT_CLEAN || 'Sin Canasta'; 
       const val = r.PROD_VAL_CLEAN || 0; // Usamos el valor individual en dinero del producto
       
       xTotals[xCol] = (xTotals[xCol] || 0) + val;
@@ -748,7 +748,7 @@ export default function App() {
 
     filteredRows.forEach(r => {
       const xCol = r.CIUDAD_CLEAN || 'Sin Ciudad'; 
-      const seg = r.CAT_CLEAN || 'Sin Categoría'; 
+      const seg = r.CAT_CLEAN || 'Sin Canasta'; 
       const val = r.PROD_VAL_CLEAN || 0; // Usamos el valor individual en dinero del producto
       
       xTotals[xCol] = (xTotals[xCol] || 0) + val;
@@ -850,10 +850,10 @@ export default function App() {
 
                   <div className="hidden sm:block w-px h-6 bg-indigo-200 dark:bg-indigo-700"></div>
 
-                  {/* Filtro Categoría */}
+                  {/* Filtro Canasta */}
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Layers size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
-                    <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Categoría:</label>
+                    <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Canasta:</label>
                     <select 
                       value={selectedCategory} 
                       onChange={(e) => setSelectedCategory(e.target.value)} 
@@ -945,7 +945,7 @@ export default function App() {
                       
                       {/* Top 5 Categorías */}
                       <div className="col-span-1 border-l border-r border-gray-100 dark:border-gray-700 px-0 lg:px-8">
-                        <div className="flex items-center gap-2 mb-4"><BarChart className="text-fuchsia-500 dark:text-fuchsia-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 5 Categorías</h3></div>
+                        <div className="flex items-center gap-2 mb-4"><BarChart className="text-fuchsia-500 dark:text-fuchsia-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 5 Canastas</h3></div>
                         <div>
                           {chapter1Stats.topCategories.map((cat, idx) => (
                             <div key={idx} className="mb-5 last:mb-0">
@@ -964,8 +964,8 @@ export default function App() {
 
                       {/* Top 10 Subcategorías */}
                     <div className="col-span-1">
-                      <div className="flex items-center gap-2 mb-4"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 10 Subcategorías</h3></div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta subcategoría:</p>
+                      <div className="flex items-center gap-2 mb-4"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 10 Categorías</h3></div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta categoría:</p>
                       <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
                     </div>
                   </div>
@@ -1009,8 +1009,8 @@ export default function App() {
                 {/* GRÁFICA 1 */}
                 <PercentageStackedBarChart 
                   chartData={chart1Data} 
-                  title="Mix de Categorías por Cadena" 
-                  description="Distribución porcentual de los ingresos (dinero) por categoría en cada supermercado."
+                  title="Mix de Canastas por Cadena" 
+                  description="Distribución porcentual de los ingresos (dinero) por canasta en cada supermercado."
                   icon={BarChart} 
                   filterLabel="Filtrar por Ciudad"
                   filterValue={filterCityForChart1} 
@@ -1024,7 +1024,7 @@ export default function App() {
                 <PercentageStackedBarChart 
                   chartData={chart2Data} 
                   title="Distribución de Ventas por Ciudad" 
-                  description="Mix porcentual de ingresos (dinero) por categoría observando una Cadena específica a través de las ciudades."
+                  description="Mix porcentual de ingresos (dinero) por canasta observando una Cadena específica a través de las ciudades."
                   icon={Map} 
                   filterLabel="Filtrar por Cadena"
                   filterValue={filterChainForChart2} 
@@ -1131,22 +1131,22 @@ export default function App() {
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.pastas.avgTicket)}</p>
                     </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
                     <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Paquetes de pasta promedio">Ítems Pasta</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.avgItems)}</p>
                     </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
                     <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Total de ítems en toda la factura (Canasta)">Total Canasta</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.basketSize)}</p>
                     </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
                     <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.pastas.peakHour}</p>
                     </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
                     <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p>
                       <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400">{data.deepDive.pastas.peakDay}</p>

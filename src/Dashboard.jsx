@@ -133,6 +133,7 @@ const analyzeData = (data) => {
   };
   
   const invoiceProductsList = {};
+  const invoiceSubcategoriesList = {}; // Guardaremos las subcategorías por factura para la venta cruzada
   const invoiceHourMap = {};
   const invoiceDayMap = {};
   const invoiceTotals = {};
@@ -148,14 +149,14 @@ const analyzeData = (data) => {
     const city = (row.CIUDAD || row.ciudad || 'Sin Ciudad').toUpperCase();
     
     const invoiceVal = cleanNumber(row.FACT_VALOR); 
-    // NUEVO: Capturamos el valor individual del producto para no duplicar ventas al hacer Mix de Categorías
     const prodVal = cleanNumber(row.EDFP_VALOR_PROD || row.VALOR_PRODUCTO || 0);
     const dayRaw = row.DIA || row.dia; 
 
     if (!rawCod || !prod) return;
     const cod = `${chain}_${rawCod}`; 
+    const subcatClean = subcat || 'Sin Subcategoría';
     
-    cleanRows.push({...row, CIUDAD_CLEAN: city, CAT_CLEAN: cat, SUBCAT_CLEAN: subcat, COD_UNICO: cod, CHAIN_CLEAN: chain, PROD_CLEAN: prod, VAL_CLEAN: invoiceVal, PROD_VAL_CLEAN: prodVal, TIME_CLEAN: time, DATE_CLEAN: date, DAY_CLEAN: dayRaw}); 
+    cleanRows.push({...row, CIUDAD_CLEAN: city, CAT_CLEAN: cat, SUBCAT_CLEAN: subcatClean, COD_UNICO: cod, CHAIN_CLEAN: chain, PROD_CLEAN: prod, VAL_CLEAN: invoiceVal, PROD_VAL_CLEAN: prodVal, TIME_CLEAN: time, DATE_CLEAN: date, DAY_CLEAN: dayRaw}); 
     
     chains.add(chain);
     uniqueCitiesSet.add(city);
@@ -163,6 +164,10 @@ const analyzeData = (data) => {
 
     if (!invoiceProductsList[cod]) invoiceProductsList[cod] = [];
     invoiceProductsList[cod].push(prod);
+
+    if (!invoiceSubcategoriesList[cod]) invoiceSubcategoriesList[cod] = new Set();
+    invoiceSubcategoriesList[cod].add(subcatClean);
+
     invoiceTotals[cod] = invoiceVal;
 
     let dayStr = "N/A";
@@ -219,18 +224,23 @@ const analyzeData = (data) => {
         if (d !== undefined && d !== "N/A") scope.pastas.days[d] = (scope.pastas.days[d] || 0) + 1;
     }
 
-    prods.forEach(p => {
-      const pUp = String(p).toUpperCase();
-      if (isHarinaTrigoInv && !pUp.includes('TRIGO') && !pUp.includes('HARINA')) scope.harinas.trigoAffinity[p] = (scope.harinas.trigoAffinity[p] || 0) + 1;
-      if (isHarinaMaizInv && !pUp.includes('MAIZ') && !pUp.includes('AREPAR') && !pUp.includes('HARINA')) scope.harinas.maizAffinity[p] = (scope.harinas.maizAffinity[p] || 0) + 1;
-      if (isPastaInv && !pUp.includes('PASTA') && !pUp.includes('FIDEO') && !pUp.includes('ESPAGUETI') && !pUp.includes('MACARRON')) scope.pastas.affinity[p] = (scope.pastas.affinity[p] || 0) + 1;
+    // Ahora iteramos sobre las subcategorías de la factura para la venta cruzada
+    const subcats = Array.from(invoiceSubcategoriesList[invCod] || []);
+    
+    subcats.forEach(sub => {
+      const subUp = String(sub).toUpperCase();
+      if (subUp === 'SIN SUBCATEGORÍA') return;
+      
+      // Aseguramos que no se crucen consigo mismas (ej. Harinas con Harinas)
+      if (isHarinaTrigoInv && !subUp.includes('HARINA')) scope.harinas.trigoAffinity[sub] = (scope.harinas.trigoAffinity[sub] || 0) + 1;
+      if (isHarinaMaizInv && !subUp.includes('HARINA')) scope.harinas.maizAffinity[sub] = (scope.harinas.maizAffinity[sub] || 0) + 1;
+      if (isPastaInv && !subUp.includes('PASTA')) scope.pastas.affinity[sub] = (scope.pastas.affinity[sub] || 0) + 1;
     });
   });
 
   const getPeakHourKey = (hObj) => { const s = Object.entries(hObj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? parseInt(s[0][0]) : -1; };
   const getPeakDayKey = (dObj) => { const s = Object.entries(dObj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? s[0][0] : "N/A"; };
   const getAvg = (invSet) => { let sum = 0; invSet.forEach(c => sum += (invoiceTotals[c] || 0)); return invSet.size > 0 ? sum / invSet.size : 0; };
-  const getTopList = (obj) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x => ({name: x[0], value: x[1]}));
   const getAffinityPercentageList = (obj, totalBaseInvoices) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x => ({name: x[0], value: totalBaseInvoices > 0 ? (x[1] / totalBaseInvoices) * 100 : 0}));
   const getAvgBasketSize = (invSet) => { let sum = 0; invSet.forEach(c => sum += (invoiceProductsList[c] ? invoiceProductsList[c].length : 0)); return invSet.size > 0 ? sum / invSet.size : 0; };
 
@@ -260,6 +270,7 @@ const analyzeData = (data) => {
       avgItems: scope.pastas.invoices.size > 0 ? scope.pastas.count / scope.pastas.invoices.size : 0,
       basketSize: getAvgBasketSize(scope.pastas.invoices),
       peakHour: getHourRange(getPeakHourKey(scope.pastas.hours)),
+      peakDay: getPeakDayKey(scope.pastas.days),
       topAff: getAffinityPercentageList(scope.pastas.affinity, scope.pastas.invoices.size)
     }
   };
@@ -1134,6 +1145,11 @@ export default function App() {
                     <div className="flex-1 text-center min-w-[80px]">
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.pastas.peakHour}</p>
+                    </div>
+                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]">
+                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p>
+                      <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400">{data.deepDive.pastas.peakDay}</p>
                     </div>
                   </div>
 

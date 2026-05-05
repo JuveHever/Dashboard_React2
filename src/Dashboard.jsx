@@ -32,6 +32,13 @@ const CHART_COLORS = [
   'bg-cyan-500', 'bg-purple-500', 'bg-pink-500', 'bg-lime-500'
 ];
 
+// Colores HEX para las gráficas SVG (Donas) equivalentes a la paleta de Tailwind
+const HEX_COLORS = [
+  '#6366f1', '#d946ef', '#14b8a6', '#f59e0b', 
+  '#f43f5e', '#3b82f6', '#10b981', '#f97316', 
+  '#06b6d4', '#a855f7', '#ec4899', '#84cc16'
+];
+
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 ${className}`}>
     {children}
@@ -55,6 +62,38 @@ const ProgressBar = ({ label, value, max, formatValue, colorClass = "bg-blue-500
   );
 };
 
+// --- COMPONENTE NUEVO: GRÁFICA DE DONA SVG ---
+const SVGDonut = ({ slices, size = "w-28 h-28 sm:w-32 sm:h-32" }) => {
+  const total = slices.reduce((acc, s) => acc + s.value, 0);
+  let offset = 0;
+  return (
+    <div className={`relative ${size} flex-shrink-0`}>
+      <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90 rounded-full drop-shadow-sm">
+        <circle cx="50" cy="50" r="40" fill="transparent" stroke="#f3f4f6" strokeWidth="20" className="dark:stroke-gray-700/50" />
+        {total > 0 && slices.map((s, i) => {
+          const perc = (s.value / total) * 100;
+          const dash = `${perc} ${100 - perc}`;
+          const currentOffset = offset;
+          offset -= perc;
+          return (
+            <circle
+              key={i}
+              cx="50" cy="50" r="40"
+              fill="transparent"
+              stroke={s.hexColor}
+              strokeWidth="20"
+              strokeDasharray={dash}
+              strokeDashoffset={currentOffset}
+              pathLength="100"
+              className="transition-all duration-1000 ease-out"
+            />
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
+
 const cleanNumber = (val) => {
   if (!val) return 0;
   let clean = String(val).replace(/[$\s.]/g, '').replace(/,/g, '.');
@@ -64,21 +103,15 @@ const cleanNumber = (val) => {
 const extractHourNum = (timeStr) => {
   if (!timeStr) return -1;
   let cleanTime = String(timeStr).trim().toLowerCase().replace(/[\u202F\u00A0]/g, ' ');
-
   if (!cleanTime.includes(':') && !isNaN(cleanTime)) {
     const floatTime = parseFloat(cleanTime);
-    if (floatTime > 0 && floatTime <= 1) {
-      return Math.floor(floatTime * 24) % 24; 
-    }
+    if (floatTime > 0 && floatTime <= 1) return Math.floor(floatTime * 24) % 24; 
   }
-
   const match = cleanTime.match(/(\d{1,2}):/);
   if (!match) return -1;
-  
   let hour = parseInt(match[1], 10);
   if (cleanTime.includes('p') && hour < 12) hour += 12;
   if (cleanTime.includes('a') && hour === 12) hour = 0;
-  
   return (hour >= 0 && hour <= 23) ? hour : -1; 
 };
 
@@ -133,7 +166,7 @@ const analyzeData = (data) => {
   };
   
   const invoiceProductsList = {};
-  const invoiceSubcategoriesList = {}; // Guardaremos las subcategorías por factura para la venta cruzada
+  const invoiceSubcategoriesList = {}; 
   const invoiceHourMap = {};
   const invoiceDayMap = {};
   const invoiceTotals = {};
@@ -224,14 +257,12 @@ const analyzeData = (data) => {
         if (d !== undefined && d !== "N/A") scope.pastas.days[d] = (scope.pastas.days[d] || 0) + 1;
     }
 
-    // Ahora iteramos sobre las subcategorías de la factura para la venta cruzada
     const subcats = Array.from(invoiceSubcategoriesList[invCod] || []);
     
     subcats.forEach(sub => {
       const subUp = String(sub).toUpperCase();
       if (subUp === 'SIN CATEGORÍA') return;
       
-      // Aseguramos que no se crucen consigo mismas (ej. Harinas con Harinas)
       if (isHarinaTrigoInv && !subUp.includes('HARINA')) scope.harinas.trigoAffinity[sub] = (scope.harinas.trigoAffinity[sub] || 0) + 1;
       if (isHarinaMaizInv && !subUp.includes('HARINA')) scope.harinas.maizAffinity[sub] = (scope.harinas.maizAffinity[sub] || 0) + 1;
       if (isPastaInv && !subUp.includes('PASTA')) scope.pastas.affinity[sub] = (scope.pastas.affinity[sub] || 0) + 1;
@@ -317,7 +348,6 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
               <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{segment}</span>
             </div>
           ))}
-          {/* Aquí hacemos la etiqueta dinámica: Solo aparece si realmente existe el bloque "Otros" en los datos */}
           {chartData.chartColumns.some(col => col.blocks.some(b => b.name === 'Otros')) && (
             <div className="flex items-center gap-1.5">
               <div className="w-3.5 h-3.5 rounded-sm shadow-sm bg-gray-300 dark:bg-gray-600"></div>
@@ -327,7 +357,6 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
         </div>
 
         <div className="flex flex-1 w-full gap-2 relative">
-          {/* EJE Y (Porcentajes) Opcional */}
           {!hideYAxis && (
             <div className="flex flex-col justify-between items-end pb-8 pr-2 border-r border-gray-200 dark:border-gray-700 w-10 sm:w-12 flex-shrink-0 relative z-10">
                {['100%', '75%', '50%', '25%', '0%'].map((tick, i) => (
@@ -339,14 +368,14 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
           <div className="flex-1 flex flex-col min-h-[280px]">
             {/* ÁREA DE BARRAS */}
             <div className="flex items-end justify-around flex-1 w-full relative">
-              {/* Líneas de cuadrícula horizontales */}
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
                   {[...Array(5)].map((_, i) => <div key={i} className="w-full border-t border-gray-100 dark:border-gray-800/50"></div>)}
               </div>
 
               {chartData.chartColumns.map(col => (
-                <div key={col.label} className="flex-1 flex flex-col items-center justify-end h-full z-10 px-1 sm:px-2 min-w-0">
-                  <div className="w-full max-w-[60px] flex flex-col-reverse h-full bg-gray-100 dark:bg-gray-700/50 rounded-t-sm overflow-hidden shadow-inner group">
+                <div key={col.label} className={`flex-1 flex flex-col items-center justify-end h-full z-10 px-1 sm:px-2 min-w-0 ${col.isGeneral ? 'border-l-2 border-dashed border-indigo-200 dark:border-indigo-800/50 pl-2 sm:pl-3 ml-1 sm:ml-2 relative' : ''}`}>
+                  {col.isGeneral && <span className="absolute -top-7 text-[9px] sm:text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded shadow-sm">Global</span>}
+                  <div className={`w-full max-w-[60px] flex flex-col-reverse h-full bg-gray-100 dark:bg-gray-700/50 rounded-t-sm overflow-hidden shadow-inner group ${col.isGeneral ? 'ring-2 ring-indigo-500/30 dark:ring-indigo-400/30' : ''}`}>
                     {col.blocks.map(b => b.perc > 0 && (
                       <div 
                         key={b.name} 
@@ -362,11 +391,11 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
               ))}
             </div>
             
-            {/* EJE X: Nombres con salto de línea automático */}
+            {/* EJE X */}
             <div className="flex justify-around w-full mt-3 h-10">
               {chartData.chartColumns.map(col => (
-                <div key={col.label} className="flex-1 flex flex-col items-center justify-start text-center px-1 sm:px-2 min-w-0">
-                  <span className="text-[9px] sm:text-[10px] font-bold text-gray-700 dark:text-gray-300 w-full break-words leading-tight line-clamp-2" title={col.label}>
+                <div key={col.label} className={`flex-1 flex flex-col items-center justify-start text-center px-1 sm:px-2 min-w-0 ${col.isGeneral ? 'border-l-2 border-transparent pl-2 sm:pl-3 ml-1 sm:ml-2' : ''}`}>
+                  <span className={`text-[9px] sm:text-[10px] font-bold w-full break-words leading-tight line-clamp-2 ${col.isGeneral ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'}`} title={col.label}>
                     {col.label}
                   </span>
                 </div>
@@ -393,6 +422,7 @@ export default function App() {
   // Filtros del Capítulo 2
   const [filterCityForChart1, setFilterCityForChart1] = useState("TODAS"); 
   const [filterChainForChart2, setFilterChainForChart2] = useState("TODAS"); 
+  const [filterCityForPies, setFilterCityForPies] = useState("TODAS"); 
 
   const [fileName, setFileName] = useState("Datos de Muestra");
   const [error, setError] = useState("");
@@ -434,6 +464,7 @@ export default function App() {
         setSelectedCategory("TODAS");
         setFilterCityForChart1("TODAS");
         setFilterChainForChart2("TODAS");
+        setFilterCityForPies("TODAS");
       } catch (err) {
         setError("Error al leer el archivo. Asegúrate de que sea un CSV válido.");
         console.error(err);
@@ -461,6 +492,7 @@ export default function App() {
     const subcategoriesCount = {};
     const productsCount = {};
     const catProducts = {};
+    const invoiceSubcats = {}; // NUEVO: Para guardar las categorías por factura
 
     filteredRows.forEach(row => {
       const cod = row.COD_UNICO;
@@ -476,6 +508,10 @@ export default function App() {
       catProducts[cat][prod] = (catProducts[cat][prod] || 0) + 1;
 
       totalItems += 1;
+
+      // NUEVO: Agrupamos las subcategorías presentes en cada factura única
+      if (!invoiceSubcats[cod]) invoiceSubcats[cod] = new Set();
+      invoiceSubcats[cod].add(subcat);
 
       if (!invoiceTotals.hasOwnProperty(cod)) {
         invoiceTotals[cod] = row.VAL_CLEAN;
@@ -548,6 +584,32 @@ export default function App() {
       .map(([name, count]) => ({ name, count, percentage: totalItems > 0 ? (count / totalItems) * 100 : 0 }))
       .sort((a,b) => b.percentage - a.percentage).slice(0, 10);
 
+    // NUEVO: Calcular afinidades cruzadas para el Top 10
+    topSubcategories.forEach(topSub => {
+      const affinityCount = {};
+      let totalInvoicesWithThisSub = 0;
+
+      Object.values(invoiceSubcats).forEach(subSet => {
+        if (subSet.has(topSub.name)) {
+          totalInvoicesWithThisSub++;
+          subSet.forEach(otherSub => {
+            if (otherSub !== topSub.name && otherSub !== 'Sin Categoría' && otherSub !== 'SIN CATEGORÍA') {
+              affinityCount[otherSub] = (affinityCount[otherSub] || 0) + 1;
+            }
+          });
+        }
+      });
+
+      topSub.top5Affinities = Object.entries(affinityCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({
+          name,
+          count,
+          percentage: totalInvoicesWithThisSub > 0 ? (count / totalInvoicesWithThisSub) * 100 : 0
+        }));
+    });
+
     return {
       avgTicket: totalInvoices > 0 ? totalRevenue / totalInvoices : 0,
       avgItems: totalInvoices > 0 ? totalItems / totalInvoices : 0,
@@ -560,7 +622,7 @@ export default function App() {
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
   // --------------------------------------------------------------------------------
-  // NUEVO CÁLCULO DINÁMICO: BARRAS APILADAS % POR DÍA (Aísla facturas únicas, Barras = Cadenas)
+  // BARRAS APILADAS % POR DÍA + COLUMNA GENERAL
   // --------------------------------------------------------------------------------
   const daySalesData = useMemo(() => {
     if (!data) return null;
@@ -578,7 +640,7 @@ export default function App() {
     filteredRows.forEach(r => {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
-        invoiceTracker[cod] = true; // Previene sumar FACT_VALOR varias veces por la misma factura
+        invoiceTracker[cod] = true; 
         
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
@@ -586,7 +648,6 @@ export default function App() {
 
         if (day === 'N/A') return;
 
-        // Ahora el eje X son las cadenas
         xTotals[chain] = (xTotals[chain] || 0) + val;
         
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
@@ -596,29 +657,37 @@ export default function App() {
       }
     });
 
-    // Segmentos son los días, los ordenamos cronológicamente de Lunes a Domingo
     const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
 
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
-      
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val });
       });
-      
-      // Eliminamos por completo la lógica de "Otros" ya que la semana solo tiene 7 días fijos
       return { label: chain, total, blocks };
     });
+
+    // Añadir columna GENERAL
+    const generalTotal = Object.values(globalSegmentTotals).reduce((sum, val) => sum + val, 0);
+    if (generalTotal > 0) {
+      const generalBlocks = [];
+      topSegments.forEach((seg, idx) => {
+        const val = globalSegmentTotals[seg] || 0;
+        const perc = generalTotal > 0 ? (val / generalTotal) * 100 : 0;
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val });
+      });
+      chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
+    }
 
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
   // --------------------------------------------------------------------------------
-  // NUEVO CÁLCULO DINÁMICO: BARRAS APILADAS % POR FRANJA HORARIA (Aísla facturas únicas)
+  // BARRAS APILADAS % POR FRANJA HORARIA + COLUMNA GENERAL
   // --------------------------------------------------------------------------------
   const hourSalesData = useMemo(() => {
     if (!data) return null;
@@ -655,7 +724,6 @@ export default function App() {
       }
     });
 
-    // Extraemos el Top 10 de horas por mayor volumen de venta, PERO las ordenamos cronológicamente
     const topHourNums = Object.entries(globalSegmentTotals)
       .sort((a,b) => b[1].val - a[1].val)
       .slice(0, 10)
@@ -685,11 +753,32 @@ export default function App() {
       return { label: chain, total, blocks };
     });
 
+    // Añadir columna GENERAL
+    const generalTotal = Object.values(globalSegmentTotals).reduce((sum, item) => sum + item.val, 0);
+    if (generalTotal > 0) {
+      const generalBlocks = [];
+      let remainingGen = 100;
+      let sumValGen = 0;
+      topSegments.forEach((seg, idx) => {
+        const gObj = Object.values(globalSegmentTotals).find(g => g.label === seg);
+        const val = gObj ? gObj.val : 0;
+        const perc = generalTotal > 0 ? (val / generalTotal) * 100 : 0;
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val });
+        remainingGen -= perc;
+        sumValGen += val;
+      });
+      const otrosGen = generalTotal - sumValGen;
+      if (remainingGen > 0.1 && otrosGen > 0) {
+        generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen });
+      }
+      chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
+    }
+
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
   // --------------------------------------------------------------------------------
-  // CÁLCULO DINÁMICO CAPÍTULO 2 (Mix Categorías - Contando DINERO de los productos)
+  // CÁLCULO DINÁMICO CAPÍTULO 2 (Mix Canastas) + COLUMNA GENERAL
   // --------------------------------------------------------------------------------
   const chart1Data = useMemo(() => {
     if (!data) return null;
@@ -703,7 +792,7 @@ export default function App() {
     filteredRows.forEach(r => {
       const xCol = r.CHAIN_CLEAN || 'Sin Cadena'; 
       const seg = r.CAT_CLEAN || 'Sin Canasta'; 
-      const val = r.PROD_VAL_CLEAN || 0; // Usamos el valor individual en dinero del producto
+      const val = r.PROD_VAL_CLEAN || 0; 
       
       xTotals[xCol] = (xTotals[xCol] || 0) + val;
       if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
@@ -733,6 +822,26 @@ export default function App() {
       
       return { label: xLabel, total, blocks };
     });
+
+    // Añadir columna GENERAL
+    const generalTotal = Object.values(globalSegmentCount).reduce((sum, val) => sum + val, 0);
+    if (generalTotal > 0) {
+      const generalBlocks = [];
+      let remainingGen = 100;
+      let sumValGen = 0;
+      topSegments.forEach((seg, idx) => {
+        const count = globalSegmentCount[seg] || 0;
+        const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count });
+        remainingGen -= perc;
+        sumValGen += count;
+      });
+      const otrosGen = generalTotal - sumValGen;
+      if (remainingGen > 0.1 && otrosGen > 0) {
+         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen });
+      }
+      chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
+    }
 
     return { topSegments, chartColumns };
   }, [data, filterCityForChart1]);
@@ -749,7 +858,7 @@ export default function App() {
     filteredRows.forEach(r => {
       const xCol = r.CIUDAD_CLEAN || 'Sin Ciudad'; 
       const seg = r.CAT_CLEAN || 'Sin Canasta'; 
-      const val = r.PROD_VAL_CLEAN || 0; // Usamos el valor individual en dinero del producto
+      const val = r.PROD_VAL_CLEAN || 0; 
       
       xTotals[xCol] = (xTotals[xCol] || 0) + val;
       if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
@@ -780,8 +889,87 @@ export default function App() {
       return { label: xLabel, total, blocks };
     });
 
+    // Añadir columna GENERAL
+    const generalTotal = Object.values(globalSegmentCount).reduce((sum, val) => sum + val, 0);
+    if (generalTotal > 0) {
+      const generalBlocks = [];
+      let remainingGen = 100;
+      let sumValGen = 0;
+      topSegments.forEach((seg, idx) => {
+        const count = globalSegmentCount[seg] || 0;
+        const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count });
+        remainingGen -= perc;
+        sumValGen += count;
+      });
+      const otrosGen = generalTotal - sumValGen;
+      if (remainingGen > 0.1 && otrosGen > 0) {
+         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen });
+      }
+      chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
+    }
+
     return { topSegments, chartColumns };
   }, [data, filterChainForChart2]);
+
+  // --------------------------------------------------------------------------------
+  // DATOS PARA LAS DONAS (Top 5 Canastas divididas por Cadena)
+  // --------------------------------------------------------------------------------
+  const topCategoryPiesData = useMemo(() => {
+    if (!data) return null;
+    let filteredRows = data.cleanRows;
+    if (filterCityForPies !== "TODAS") filteredRows = filteredRows.filter(r => r.CIUDAD_CLEAN === filterCityForPies);
+
+    // 1. Identificar el Top 5 de Canastas por Valor (EDFP_VALOR_PROD)
+    const catTotals = {};
+    filteredRows.forEach(r => {
+      const cat = r.CAT_CLEAN || 'Sin Canasta';
+      const val = r.PROD_VAL_CLEAN || 0;
+      catTotals[cat] = (catTotals[cat] || 0) + val;
+    });
+    
+    const top5Cats = Object.entries(catTotals)
+      .sort((a,b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(x => x[0]);
+
+    // 2. Para cada una de esas 5 canastas, calcular cuánto vendió cada Cadena
+    const pies = top5Cats.map(catName => {
+      const chainTotals = {};
+      let totalVal = 0;
+      
+      filteredRows.forEach(r => {
+        if ((r.CAT_CLEAN || 'Sin Canasta') === catName) {
+          const chain = r.CHAIN_CLEAN || 'Sin Cadena';
+          const val = r.PROD_VAL_CLEAN || 0;
+          chainTotals[chain] = (chainTotals[chain] || 0) + val;
+          totalVal += val;
+        }
+      });
+
+      // Ordenar las cadenas de mayor a menor participación dentro de esta canasta
+      const chains = Object.keys(chainTotals).sort((a,b) => chainTotals[b] - chainTotals[a]);
+      
+      const slices = chains.map((chain, idx) => {
+        const globalChainIdx = data.chainList.indexOf(chain);
+        const colorIdx = globalChainIdx >= 0 ? globalChainIdx : idx;
+        return {
+          label: chain,
+          value: chainTotals[chain],
+          hexColor: HEX_COLORS[colorIdx % HEX_COLORS.length] || '#000',
+          colorClass: CHART_COLORS[colorIdx % CHART_COLORS.length]
+        };
+      });
+
+      return {
+        category: catName,
+        total: totalVal,
+        slices
+      };
+    });
+
+    return pies;
+  }, [data, filterCityForPies]);
 
   const formatCurrency = (val) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
   const formatNumber = (val) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(val);
@@ -969,6 +1157,47 @@ export default function App() {
                       <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
                     </div>
                   </div>
+
+                  {/* VENTA CRUZADA TOP 10 (Mostrando 5 afinidades) */}
+                  <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-lg">
+                        <ShoppingCart size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold dark:text-gray-100">Venta Cruzada: Afinidades del Top 10 Categorías</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Cuando un cliente lleva una de estas 10 categorías principales, ¿qué otras 5 suele incluir en su factura?</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                      {chapter1Stats.topSubcategories.map((subcat, idx) => (
+                        <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex flex-col h-full hover:shadow-md transition-shadow">
+                          <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-600 truncate" title={subcat.name}>
+                            <span className="text-orange-500 dark:text-orange-400 mr-1">{idx + 1}.</span> {subcat.name}
+                          </h4>
+                          <div className="flex-1 flex flex-col justify-end space-y-3">
+                            {subcat.top5Affinities && subcat.top5Affinities.length > 0 ? (
+                              subcat.top5Affinities.map((aff, i) => (
+                                <ProgressBar 
+                                  key={i} 
+                                  label={aff.name} 
+                                  value={aff.percentage} 
+                                  max={subcat.top5Affinities[0]?.percentage || 100} 
+                                  formatValue={(v) => `${v.toFixed(1)}%`} 
+                                  colorClass="bg-orange-400 dark:bg-orange-500" 
+                                  className="mb-0" 
+                                />
+                              ))
+                            ) : (
+                              <div className="flex-1 flex items-center justify-center">
+                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin cruces frecuentes</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   
                   {/* NUEVOS GRÁFICOS: PORCENTAJES DE VENTA (FACT_VALOR) POR DÍA Y HORA */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
@@ -1006,6 +1235,55 @@ export default function App() {
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-indigo-500 pl-3">Capítulo 2: Análisis Comparativo</h2>
               
               <div className="grid grid-cols-1 gap-8">
+                
+                {/* NUEVO: TOP 5 CANASTAS POR CIUDAD (PIE CHARTS) */}
+                <Card className="col-span-1 border-t-4 border-t-indigo-400 dark:border-t-indigo-500">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
+                    <div>
+                      <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><PieChart className="text-indigo-500 dark:text-indigo-400"/> Participación en Top 5 Canastas</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Distribución de las ventas ($) entre Cadenas para las 5 canastas principales.</p>
+                    </div>
+                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg border border-gray-200 dark:border-gray-600 max-w-full sm:max-w-xs">
+                      <Filter size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-300 flex-shrink-0">Filtrar Ciudad:</label>
+                      <select 
+                        value={filterCityForPies} 
+                        onChange={(e) => setFilterCityForPies(e.target.value)} 
+                        className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer w-full truncate shadow-sm"
+                      >
+                        <option value="TODAS">TODAS LAS CIUDADES</option>
+                        {data.cityList.map(city => <option key={city} value={city}>{city}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {topCategoryPiesData && topCategoryPiesData.length > 0 ? (
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+                      {topCategoryPiesData.map(pie => (
+                        <div key={pie.category} className="flex flex-col items-center bg-gray-50/50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                          <h4 className="text-xs sm:text-sm font-bold text-center mb-4 text-gray-700 dark:text-gray-200 line-clamp-2 h-10 w-full">{pie.category}</h4>
+                          <SVGDonut slices={pie.slices} />
+                          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-4 font-bold tracking-wide">{formatCurrency(pie.total)}</p>
+                          
+                          <div className="mt-4 w-full space-y-2">
+                            {pie.slices.map(s => (
+                              <div key={s.label} className="flex items-center justify-between text-[10px] sm:text-xs">
+                                <div className="flex items-center gap-2 truncate pr-2">
+                                  <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0`} style={{backgroundColor: s.hexColor}}></div>
+                                  <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
+                                </div>
+                                <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{pie.total > 0 ? ((s.value / pie.total) * 100).toFixed(1) : 0}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-gray-500 py-8">No hay datos para mostrar en esta selección.</p>
+                  )}
+                </Card>
+
                 {/* GRÁFICA 1 */}
                 <PercentageStackedBarChart 
                   chartData={chart1Data} 

@@ -922,8 +922,15 @@ export default function App() {
 
     // 1. Identificar el Top 5 de Canastas por Valor (EDFP_VALOR_PROD)
     const catTotals = {};
+    const excludedCats = ['FRUVER', 'CARNES', 'CARNES FESCRAS', 'CARNES FRESCAS']; // Filtro para excluir estas canastas
+
     filteredRows.forEach(r => {
       const cat = r.CAT_CLEAN || 'Sin Canasta';
+      const catUpper = cat.toUpperCase().trim();
+      
+      // Si la canasta está en la lista de excluidas, saltamos a la siguiente fila
+      if (excludedCats.includes(catUpper)) return;
+
       const val = r.PROD_VAL_CLEAN || 0;
       catTotals[cat] = (catTotals[cat] || 0) + val;
     });

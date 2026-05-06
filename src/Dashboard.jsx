@@ -622,6 +622,158 @@ export default function App() {
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
   // --------------------------------------------------------------------------------
+  // BARRAS APILADAS % DE TRÁFICO POR DÍA + COLUMNA GENERAL
+  // --------------------------------------------------------------------------------
+  const dayTrafficData = useMemo(() => {
+    if (!data) return null;
+    let filteredRows = data.cleanRows;
+    if (selectedChain !== "TODAS") filteredRows = filteredRows.filter(r => r.CHAIN_CLEAN === selectedChain);
+    if (selectedCity !== "TODAS") filteredRows = filteredRows.filter(r => r.CIUDAD_CLEAN === selectedCity);
+    if (selectedCategory !== "TODAS") filteredRows = filteredRows.filter(r => r.CAT_CLEAN === selectedCategory);
+
+    const dayOrder = { 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 7 };
+    const xTotals = {}; 
+    const xSegmentTotals = {}; 
+    const globalSegmentTotals = {}; 
+    const invoiceTracker = {};
+
+    filteredRows.forEach(r => {
+      const cod = r.COD_UNICO;
+      if (!invoiceTracker[cod]) {
+        invoiceTracker[cod] = true; 
+        
+        const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
+        const chain = r.CHAIN_CLEAN || 'Sin Cadena';
+
+        if (day === 'N/A') return;
+
+        xTotals[chain] = (xTotals[chain] || 0) + 1;
+        
+        if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
+        xSegmentTotals[chain][day] = (xSegmentTotals[chain][day] || 0) + 1;
+        
+        globalSegmentTotals[day] = (globalSegmentTotals[day] || 0) + 1;
+      }
+    });
+
+    const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
+    const xList = Object.keys(xTotals).sort();
+
+    const chartColumns = xList.map(chain => {
+      const total = xTotals[chain];
+      const blocks = [];
+      topSegments.forEach((seg, idx) => {
+        const val = xSegmentTotals[chain][seg] || 0;
+        const perc = total > 0 ? (val / total) * 100 : 0;
+        blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val });
+      });
+      return { label: chain, total, blocks };
+    });
+
+    const generalTotal = Object.values(globalSegmentTotals).reduce((sum, val) => sum + val, 0);
+    if (generalTotal > 0) {
+      const generalBlocks = [];
+      topSegments.forEach((seg, idx) => {
+        const val = globalSegmentTotals[seg] || 0;
+        const perc = generalTotal > 0 ? (val / generalTotal) * 100 : 0;
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val });
+      });
+      chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
+    }
+
+    return { topSegments, chartColumns };
+  }, [data, selectedChain, selectedCity, selectedCategory]);
+
+  // --------------------------------------------------------------------------------
+  // BARRAS APILADAS % DE TRÁFICO POR FRANJA HORARIA + COLUMNA GENERAL
+  // --------------------------------------------------------------------------------
+  const hourTrafficData = useMemo(() => {
+    if (!data) return null;
+    let filteredRows = data.cleanRows;
+    if (selectedChain !== "TODAS") filteredRows = filteredRows.filter(r => r.CHAIN_CLEAN === selectedChain);
+    if (selectedCity !== "TODAS") filteredRows = filteredRows.filter(r => r.CIUDAD_CLEAN === selectedCity);
+    if (selectedCategory !== "TODAS") filteredRows = filteredRows.filter(r => r.CAT_CLEAN === selectedCategory);
+
+    const xTotals = {};
+    const xSegmentTotals = {};
+    const globalSegmentTotals = {};
+    const invoiceTracker = {};
+
+    filteredRows.forEach(r => {
+      const cod = r.COD_UNICO;
+      if (!invoiceTracker[cod]) {
+        invoiceTracker[cod] = true;
+        
+        const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
+        const chain = r.CHAIN_CLEAN || 'Sin Cadena';
+
+        if (hourNum === -1) return;
+
+        const hourLabel = getHourRange(hourNum).replace(' - ', '-');
+
+        xTotals[chain] = (xTotals[chain] || 0) + 1;
+        
+        if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
+        xSegmentTotals[chain][hourLabel] = (xSegmentTotals[chain][hourLabel] || 0) + 1;
+        
+        if (!globalSegmentTotals[hourNum]) globalSegmentTotals[hourNum] = { label: hourLabel, val: 0 };
+        globalSegmentTotals[hourNum].val += 1;
+      }
+    });
+
+    const topHourNums = Object.entries(globalSegmentTotals)
+      .sort((a,b) => b[1].val - a[1].val)
+      .slice(0, 10)
+      .map(x => parseInt(x[0]))
+      .sort((a, b) => a - b);
+
+    const topSegments = topHourNums.map(h => globalSegmentTotals[h].label);
+    const xList = Object.keys(xTotals).sort(); 
+
+    const chartColumns = xList.map(chain => {
+      const total = xTotals[chain];
+      const blocks = [];
+      let remaining = 100;
+      let sumVal = 0;
+      
+      topSegments.forEach((seg, idx) => {
+        const val = xSegmentTotals[chain][seg] || 0;
+        const perc = total > 0 ? (val / total) * 100 : 0;
+        blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val });
+        remaining -= perc;
+        sumVal += val;
+      });
+      
+      const otrosVal = total - sumVal;
+      if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
+      
+      return { label: chain, total, blocks };
+    });
+
+    const generalTotal = Object.values(globalSegmentTotals).reduce((sum, item) => sum + item.val, 0);
+    if (generalTotal > 0) {
+      const generalBlocks = [];
+      let remainingGen = 100;
+      let sumValGen = 0;
+      topSegments.forEach((seg, idx) => {
+        const gObj = Object.values(globalSegmentTotals).find(g => g.label === seg);
+        const val = gObj ? gObj.val : 0;
+        const perc = generalTotal > 0 ? (val / generalTotal) * 100 : 0;
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val });
+        remainingGen -= perc;
+        sumValGen += val;
+      });
+      const otrosGen = generalTotal - sumValGen;
+      if (remainingGen > 0.1 && otrosGen > 0) {
+        generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen });
+      }
+      chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
+    }
+
+    return { topSegments, chartColumns };
+  }, [data, selectedChain, selectedCity, selectedCategory]);
+
+  // --------------------------------------------------------------------------------
   // BARRAS APILADAS % POR DÍA + COLUMNA GENERAL
   // --------------------------------------------------------------------------------
   const daySalesData = useMemo(() => {
@@ -671,7 +823,6 @@ export default function App() {
       return { label: chain, total, blocks };
     });
 
-    // Añadir columna GENERAL
     const generalTotal = Object.values(globalSegmentTotals).reduce((sum, val) => sum + val, 0);
     if (generalTotal > 0) {
       const generalBlocks = [];
@@ -753,7 +904,6 @@ export default function App() {
       return { label: chain, total, blocks };
     });
 
-    // Añadir columna GENERAL
     const generalTotal = Object.values(globalSegmentTotals).reduce((sum, item) => sum + item.val, 0);
     if (generalTotal > 0) {
       const generalBlocks = [];
@@ -823,7 +973,6 @@ export default function App() {
       return { label: xLabel, total, blocks };
     });
 
-    // Añadir columna GENERAL
     const generalTotal = Object.values(globalSegmentCount).reduce((sum, val) => sum + val, 0);
     if (generalTotal > 0) {
       const generalBlocks = [];
@@ -889,7 +1038,6 @@ export default function App() {
       return { label: xLabel, total, blocks };
     });
 
-    // Añadir columna GENERAL
     const generalTotal = Object.values(globalSegmentCount).reduce((sum, val) => sum + val, 0);
     if (generalTotal > 0) {
       const generalBlocks = [];
@@ -922,13 +1070,12 @@ export default function App() {
 
     // 1. Identificar el Top 5 de Canastas por Valor (EDFP_VALOR_PROD)
     const catTotals = {};
-    const excludedCats = ['FRUVER', 'CARNES', 'CARNES FESCRAS', 'CARNES FRESCAS']; // Filtro para excluir estas canastas
+    const excludedCats = ['FRUVER', 'CARNES', 'CARNES FESCRAS', 'CARNES FRESCAS'];
 
     filteredRows.forEach(r => {
       const cat = r.CAT_CLEAN || 'Sin Canasta';
       const catUpper = cat.toUpperCase().trim();
       
-      // Si la canasta está en la lista de excluidas, saltamos a la siguiente fila
       if (excludedCats.includes(catUpper)) return;
 
       const val = r.PROD_VAL_CLEAN || 0;
@@ -1205,20 +1352,38 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  
-                  {/* NUEVOS GRÁFICOS: PORCENTAJES DE VENTA (FACT_VALOR) POR DÍA Y HORA */}
+
+                  {/* NUEVOS GRÁFICOS: PORCENTAJES DE VENTA (FACT_VALOR) Y TRÁFICO POR DÍA Y HORA */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
                     <PercentageStackedBarChart 
+                      chartData={dayTrafficData}
+                      title="Distribución Tráfico por Día"
+                      description="% de Facturas (clientes) de cada Cadena distribuido según el Día."
+                      icon={ShoppingCart}
+                      isCurrency={false}
+                      valueSuffix=" facturas"
+                      hideYAxis={true}
+                    />
+                    <PercentageStackedBarChart 
+                      chartData={hourTrafficData}
+                      title="Distribución Tráfico por Hora"
+                      description="% de Facturas (clientes) de cada Cadena distribuido en su Franja Horaria."
+                      icon={ShoppingCart}
+                      isCurrency={false}
+                      valueSuffix=" facturas"
+                      hideYAxis={true}
+                    />
+                    <PercentageStackedBarChart 
                       chartData={daySalesData}
-                      title="Distribución de Ventas por Día"
-                      description="% del Dinero total (Ventas) de cada Cadena distribuido según el Día de la semana."
+                      title="Distribución Ventas por Día"
+                      description="% del Dinero total (Ventas) de cada Cadena distribuido según el Día."
                       icon={Calendar}
                       isCurrency={true}
                       hideYAxis={true}
                     />
                     <PercentageStackedBarChart 
                       chartData={hourSalesData}
-                      title="Distribución de Ventas por Hora"
+                      title="Distribución Ventas por Hora"
                       description="% del Dinero total (Ventas) de cada Cadena distribuido en su Franja Horaria."
                       icon={Clock}
                       isCurrency={true}

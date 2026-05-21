@@ -956,9 +956,9 @@ export default function App() {
     const xSegmentCounts = {};
     const globalSegmentCount = {};
     
-    // NUEVO: Trackers específicos por Categoría
-    const chainSegmentInvoices = {};
-    const globalSegmentInvoices = {};
+    // Trackers para contar la cantidad literal de productos (ítems/filas)
+    const chainSegmentItems = {};
+    const globalSegmentItems = {};
 
     filteredRows.forEach(r => {
       const xCol = r.CHAIN_CLEAN || 'Sin Cadena'; 
@@ -970,14 +970,10 @@ export default function App() {
       xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
       globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
 
-      // Almacenamos facturas únicas POR CADENA y POR CATEGORÍA
-      if (!chainSegmentInvoices[xCol]) chainSegmentInvoices[xCol] = {};
-      if (!chainSegmentInvoices[xCol][seg]) chainSegmentInvoices[xCol][seg] = new Set();
-      if (r.COD_UNICO) chainSegmentInvoices[xCol][seg].add(r.COD_UNICO);
-
-      // Almacenamos facturas únicas GLOBALES y POR CATEGORÍA
-      if (!globalSegmentInvoices[seg]) globalSegmentInvoices[seg] = new Set();
-      if (r.COD_UNICO) globalSegmentInvoices[seg].add(r.COD_UNICO);
+      // Sumamos 1 ítem por cada fila encontrada
+      if (!chainSegmentItems[xCol]) chainSegmentItems[xCol] = {};
+      chainSegmentItems[xCol][seg] = (chainSegmentItems[xCol][seg] || 0) + 1;
+      globalSegmentItems[seg] = (globalSegmentItems[seg] || 0) + 1;
     });
 
     const topSegments = Object.entries(globalSegmentCount).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x=>x[0]);
@@ -993,9 +989,9 @@ export default function App() {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
         
-        // PROMEDIO: Dividimos solo entre los clientes de esta cadena que llevaron esta canasta
-        const invCount = chainSegmentInvoices[xLabel]?.[seg]?.size || 1; 
-        const avg = count / invCount; 
+        // PROMEDIO LITERAL: Dinero total / Cantidad de productos
+        const itemCount = chainSegmentItems[xLabel]?.[seg] || 1; 
+        const avg = count / itemCount; 
         
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
@@ -1004,15 +1000,14 @@ export default function App() {
 
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) {
-        // Para "Otros", unificamos las facturas de todas las categorías que no son del Top 10
-        let otrosInvoicesSet = new Set();
-        Object.keys(chainSegmentInvoices[xLabel] || {}).forEach(s => {
+        let otrosItemCount = 0;
+        Object.keys(chainSegmentItems[xLabel] || {}).forEach(s => {
             if (!topSegments.includes(s)) {
-                chainSegmentInvoices[xLabel][s].forEach(id => otrosInvoicesSet.add(id));
+                otrosItemCount += chainSegmentItems[xLabel][s];
             }
         });
-        const otrosInvCount = otrosInvoicesSet.size || 1;
-        blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal / otrosInvCount });
+        const avgOtros = otrosVal / (otrosItemCount || 1);
+        blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: avgOtros });
       }
       
       return { label: xLabel, total, blocks };
@@ -1027,21 +1022,20 @@ export default function App() {
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
-        const genInvCount = globalSegmentInvoices[seg]?.size || 1;
-        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / genInvCount });
+        const genItemCount = globalSegmentItems[seg] || 1;
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / genItemCount });
         remainingGen -= perc;
         sumValGen += count;
       });
       const otrosGen = generalTotal - sumValGen;
       if (remainingGen > 0.1 && otrosGen > 0) {
-         let otrosGenInvoicesSet = new Set();
-         Object.keys(globalSegmentInvoices).forEach(s => {
+         let otrosGenItemCount = 0;
+         Object.keys(globalSegmentItems).forEach(s => {
              if (!topSegments.includes(s)) {
-                 globalSegmentInvoices[s].forEach(id => otrosGenInvoicesSet.add(id));
+                 otrosGenItemCount += globalSegmentItems[s];
              }
          });
-         const otrosGenInvCount = otrosGenInvoicesSet.size || 1;
-         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / otrosGenInvCount });
+         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / (otrosGenItemCount || 1) });
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
@@ -1090,8 +1084,11 @@ export default function App() {
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
-        const invCount = chainSegmentInvoices[xLabel]?.[seg]?.size || 1; // PROMEDIO SOLO EN FACTURAS QUE LO LLEVAN
+        
+        // PROMEDIO: Unidades vendidas / Facturas que lo llevan
+        const invCount = chainSegmentInvoices[xLabel]?.[seg]?.size || 1; 
         const avg = count / invCount; 
+        
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
         sumVal += count;
@@ -1121,6 +1118,7 @@ export default function App() {
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
+        
         const genInvCount = globalSegmentInvoices[seg]?.size || 1;
         generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / genInvCount });
         remainingGen -= perc;
@@ -1607,8 +1605,8 @@ export default function App() {
                 {/* GRÁFICA 1 */}
                 <PercentageStackedBarChart 
                   chartData={chart1Data} 
-                  title="Mix de Canastas por Cadena (Promedio Ventas $)" 
-                  description="Ticket promedio ($) aportado por cada canasta en cada cadena. La barra representa la proporción del gasto."
+                  title="Mix de Canastas por Cadena (Precio Promedio $)" 
+                  description="Valor promedio de un (1) producto de esta canasta en cada cadena. La barra representa la proporción del gasto."
                   icon={BarChart} 
                   filterLabel="Filtrar por Ciudad"
                   filterValue={filterCityForChart1} 
@@ -1623,7 +1621,7 @@ export default function App() {
                 <PercentageStackedBarChart 
                   chartData={chart1DataUnits} 
                   title="Mix de Canastas por Cadena (Promedio Unidades)" 
-                  description="Promedio de unidades (ítems) aportados por canasta por factura en cada cadena."
+                  description="Promedio de unidades (ítems) aportados por canasta por cada factura que la incluye."
                   icon={Layers} 
                   filterLabel="Filtrar por Ciudad"
                   filterValue={filterCityForChart1} 

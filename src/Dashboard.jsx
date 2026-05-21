@@ -329,7 +329,7 @@ const analyzeData = (data) => {
 };
 
 // --- COMPONENTE UNIFICADO: GRÁFICA DE BARRAS APILADAS AL 100% (CON EJE Y) ---
-const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, filterLabel, filterValue, setFilterValue, filterOptions, defaultFilterText, valueSuffix = "unid.", isCurrency = false, hideYAxis = false }) => (
+const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, filterLabel, filterValue, setFilterValue, filterOptions, defaultFilterText, valueSuffix = "unid.", isCurrency = false, hideYAxis = false, showAverageInsteadOfPercentage = false }) => (
   <Card className="flex flex-col h-full">
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
       <div>
@@ -394,9 +394,13 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
                         key={b.name} 
                         style={{ height: `${b.perc}%` }} 
                         className={`${b.color} w-full flex items-center justify-center transition-all hover:opacity-90 cursor-crosshair border-b border-white/20 dark:border-black/20 last:border-b-0`} 
-                        title={`${col.label}\n${b.name}\n${b.perc.toFixed(1)}% (${isCurrency ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(b.val) : b.val + ' ' + valueSuffix})`}
+                        title={`${col.label}\n${b.name}\n${b.perc.toFixed(1)}% | ${showAverageInsteadOfPercentage ? 'Promedio: ' : 'Total: '}${isCurrency ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(b.val) : Number(b.val).toFixed(1) + ' ' + valueSuffix}`}
                       >
-                        {b.perc > 8 && <span className="text-[9px] sm:text-[10px] text-white font-bold tracking-tight px-1 truncate drop-shadow-md">{b.perc.toFixed(0)}%</span>}
+                        {b.perc > 8 && <span className="text-[9px] sm:text-[10px] text-white font-bold tracking-tight px-1 truncate drop-shadow-md">
+                          {showAverageInsteadOfPercentage 
+                            ? (isCurrency ? new Intl.NumberFormat('es-CO', { notation: 'compact', style: 'currency', currency: 'COP', maximumFractionDigits: 1 }).format(b.val) : Number(b.val).toFixed(1)) 
+                            : `${b.perc.toFixed(0)}%`}
+                        </span>}
                       </div>
                     ))}
                   </div>
@@ -951,6 +955,8 @@ export default function App() {
     const xTotals = {};
     const xSegmentCounts = {};
     const globalSegmentCount = {};
+    const chainInvoices = {};
+    const globalInvoices = new Set();
 
     filteredRows.forEach(r => {
       const xCol = r.CHAIN_CLEAN || 'Sin Cadena'; 
@@ -961,6 +967,10 @@ export default function App() {
       if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
       xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
       globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
+
+      if (!chainInvoices[xCol]) chainInvoices[xCol] = new Set();
+      if (r.COD_UNICO) chainInvoices[xCol].add(r.COD_UNICO);
+      if (r.COD_UNICO) globalInvoices.add(r.COD_UNICO);
     });
 
     const topSegments = Object.entries(globalSegmentCount).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x=>x[0]);
@@ -968,6 +978,7 @@ export default function App() {
 
     const chartColumns = xList.map(xLabel => {
       const total = xTotals[xLabel];
+      const invCount = chainInvoices[xLabel]?.size || 1;
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
@@ -975,13 +986,16 @@ export default function App() {
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
-        blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count });
+        const avg = count / invCount; // PROMEDIO
+        blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
         sumVal += count;
       });
 
       const otrosVal = total - sumVal;
-      if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
+      if (remaining > 0.1 && otrosVal > 0) {
+        blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal / invCount });
+      }
       
       return { label: xLabel, total, blocks };
     });
@@ -991,16 +1005,18 @@ export default function App() {
       const generalBlocks = [];
       let remainingGen = 100;
       let sumValGen = 0;
+      const genInvCount = globalInvoices.size || 1;
+      
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
-        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count });
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / genInvCount });
         remainingGen -= perc;
         sumValGen += count;
       });
       const otrosGen = generalTotal - sumValGen;
       if (remainingGen > 0.1 && otrosGen > 0) {
-         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen });
+         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / genInvCount });
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
@@ -1016,6 +1032,8 @@ export default function App() {
     const xTotals = {};
     const xSegmentCounts = {};
     const globalSegmentCount = {};
+    const chainInvoices = {};
+    const globalInvoices = new Set();
 
     filteredRows.forEach(r => {
       const xCol = r.CHAIN_CLEAN || 'Sin Cadena'; 
@@ -1026,6 +1044,10 @@ export default function App() {
       if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
       xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
       globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
+
+      if (!chainInvoices[xCol]) chainInvoices[xCol] = new Set();
+      if (r.COD_UNICO) chainInvoices[xCol].add(r.COD_UNICO);
+      if (r.COD_UNICO) globalInvoices.add(r.COD_UNICO);
     });
 
     const topSegments = Object.entries(globalSegmentCount).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x=>x[0]);
@@ -1033,6 +1055,7 @@ export default function App() {
 
     const chartColumns = xList.map(xLabel => {
       const total = xTotals[xLabel];
+      const invCount = chainInvoices[xLabel]?.size || 1;
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
@@ -1040,13 +1063,16 @@ export default function App() {
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
-        blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count });
+        const avg = count / invCount; // PROMEDIO
+        blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
         sumVal += count;
       });
 
       const otrosVal = total - sumVal;
-      if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
+      if (remaining > 0.1 && otrosVal > 0) {
+        blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal / invCount });
+      }
       
       return { label: xLabel, total, blocks };
     });
@@ -1056,16 +1082,18 @@ export default function App() {
       const generalBlocks = [];
       let remainingGen = 100;
       let sumValGen = 0;
+      const genInvCount = globalInvoices.size || 1;
+
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
-        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count });
+        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / genInvCount });
         remainingGen -= perc;
         sumValGen += count;
       });
       const otrosGen = generalTotal - sumValGen;
       if (remainingGen > 0.1 && otrosGen > 0) {
-         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen });
+         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / genInvCount });
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
@@ -1537,8 +1565,8 @@ export default function App() {
                 {/* GRÁFICA 1 */}
                 <PercentageStackedBarChart 
                   chartData={chart1Data} 
-                  title="Mix de Canastas por Cadena (Ventas $)" 
-                  description="Distribución porcentual de los ingresos (dinero) por canasta en cada supermercado."
+                  title="Mix de Canastas por Cadena (Promedio Ventas $)" 
+                  description="Ticket promedio ($) aportado por cada canasta en cada cadena. La barra representa la proporción del gasto."
                   icon={BarChart} 
                   filterLabel="Filtrar por Ciudad"
                   filterValue={filterCityForChart1} 
@@ -1546,13 +1574,14 @@ export default function App() {
                   filterOptions={data.cityList} 
                   defaultFilterText="TODAS LAS CIUDADES"
                   isCurrency={true}
+                  showAverageInsteadOfPercentage={true}
                 />
 
                 {/* GRÁFICA 1 (UNIDADES) */}
                 <PercentageStackedBarChart 
                   chartData={chart1DataUnits} 
-                  title="Mix de Canastas por Cadena (Unidades)" 
-                  description="Distribución porcentual del volumen (ítems/unidades) por canasta en cada supermercado."
+                  title="Mix de Canastas por Cadena (Promedio Unidades)" 
+                  description="Promedio de unidades (ítems) aportados por canasta por factura en cada cadena."
                   icon={Layers} 
                   filterLabel="Filtrar por Ciudad"
                   filterValue={filterCityForChart1} 
@@ -1560,7 +1589,8 @@ export default function App() {
                   filterOptions={data.cityList} 
                   defaultFilterText="TODAS LAS CIUDADES"
                   isCurrency={false}
-                  valueSuffix=" unids."
+                  valueSuffix=" unid."
+                  showAverageInsteadOfPercentage={true}
                 />
 
                 {/* GRÁFICA 2 */}

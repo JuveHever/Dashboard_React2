@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw, Download } from 'lucide-react';
+import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw, Download, Droplet } from 'lucide-react';
 
-// --- DATOS DE MUESTRA ---
 const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_NOMBRE_PROD;CATEGORIA;SUBCATEGORIA;EDFP_VALOR_PROD;CIUDAD
 1;2026-02-21;Sábado;15:27:54;$ 19.000;SUPERTIENDAS CAÑAVERAL S.A.S.;PAN GUADALUPE*450g;ALIMENTOS;PANADERIA;$ 19.000;CALI
 2;2026-02-21;Sábado;12:45:00;$ 10.000;SUPERTIENDAS CAÑAVERAL S.A.S.;LECHE ENTERA;LACTEOS;LECHES;$ 10.000;CALI
@@ -38,7 +37,6 @@ const HEX_COLORS = [
   '#06b6d4', '#a855f7', '#ec4899', '#84cc16'
 ];
 
-// --- FUNCIÓN DE EXPORTACIÓN GENÉRICA ---
 const handleExportGenericCSV = (filename, dataRows) => {
   if (!dataRows || dataRows.length === 0) return;
   const headers = Object.keys(dataRows[0]);
@@ -162,6 +160,22 @@ const getJornada = (hour) => {
   return "Madrugada"; 
 };
 
+const getPeakHourKey = (hObj) => { const s = Object.entries(hObj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? parseInt(s[0][0]) : -1; };
+const getPeakDayKey = (dObj) => { const s = Object.entries(dObj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? s[0][0] : "N/A"; };
+const getAffinityPercentageList = (obj, totalBaseInvoices) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x => ({name: x[0], value: totalBaseInvoices > 0 ? (x[1] / totalBaseInvoices) * 100 : 0}));
+const getPieSlices = (countObj, colorRefList) => {
+  const total = Object.values(countObj).reduce((a,b)=>a+b, 0);
+  return Object.entries(countObj).sort((a,b)=>b[1]-a[1]).map(([name, val], idx) => {
+    const refIdx = colorRefList ? colorRefList.indexOf(name) : -1;
+    const finalIdx = refIdx >= 0 ? refIdx : idx;
+    return {
+      label: name,
+      value: val,
+      hexColor: HEX_COLORS[finalIdx % HEX_COLORS.length] || HEX_COLORS[0]
+    };
+  });
+};
+
 const parseCSV = (text) => {
   const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
   if (lines.length === 0) return [];
@@ -186,17 +200,6 @@ const analyzeData = (data) => {
   const uniqueCategoriesSet = new Set();
   const cleanRows = []; 
 
-  const scope = {
-    harinas: { invoices: new Set(), trigoInvoices: new Set(), maizInvoices: new Set(), trigoCount: 0, maizCount: 0, otrasCount: 0, hours: {}, days: {}, trigoAffinity: {}, maizAffinity: {}, chainCount: {}, cityCount: {} },
-    pastas: { invoices: new Set(), count: 0, hours: {}, days: {}, affinity: {} }
-  };
-  
-  const invoiceProductsList = {};
-  const invoiceSubcategoriesList = {}; 
-  const invoiceHourMap = {};
-  const invoiceDayMap = {};
-  const invoiceTotals = {};
-
   data.forEach(row => {
     const rawCod = row.FACT_CODIGO || row.FACT_NROFACTURA; 
     const chain = row.FACT_NOM_EST || 'Sin Cadena Identificada';
@@ -220,138 +223,24 @@ const analyzeData = (data) => {
     chains.add(chain);
     uniqueCitiesSet.add(city);
     uniqueCategoriesSet.add(cat);
-
-    if (!invoiceProductsList[cod]) invoiceProductsList[cod] = [];
-    invoiceProductsList[cod].push(prod);
-
-    if (!invoiceSubcategoriesList[cod]) invoiceSubcategoriesList[cod] = new Set();
-    invoiceSubcategoriesList[cod].add(subcatClean);
-
-    invoiceTotals[cod] = invoiceVal;
-
-    let dayStr = "N/A";
-    if (dayRaw) {
-        dayStr = dayRaw.trim().charAt(0).toUpperCase() + dayRaw.trim().slice(1).toLowerCase();
-    } else if (date) {
-        const d = new Date(date);
-        if(!isNaN(d)) dayStr = new Intl.DateTimeFormat('es-CO', {weekday: 'long'}).format(d);
-        if(dayStr) dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
-    }
-    invoiceDayMap[cod] = dayStr;
-
-    if (time) {
-        const hour = extractHourNum(time);
-        if (hour !== -1) invoiceHourMap[cod] = hour;
-    }
-
-    const pUp = String(prod).toUpperCase();
-    const subcatUp = String(subcat).toUpperCase();
-    const isHarina = subcatUp.includes('HARINA') || subcatUp === 'HARINAS';
-    const isPasta = subcatUp.includes('PASTA') || subcatUp === 'PASTAS';
-    
-    const isTrigo = isHarina && pUp.includes('TRIGO');
-    const isMaiz = isHarina && (pUp.includes('MAIZ') || pUp.includes('AREPAR') || pUp.includes('PROMASA'));
-    const isOtraHarina = isHarina && !isTrigo && !isMaiz;
-
-    if (isHarina) {
-      scope.harinas.invoices.add(cod);
-      scope.harinas.chainCount[chain] = (scope.harinas.chainCount[chain] || 0) + 1;
-      scope.harinas.cityCount[city] = (scope.harinas.cityCount[city] || 0) + 1;
-      if (isTrigo) { scope.harinas.trigoCount++; scope.harinas.trigoInvoices.add(cod); }
-      else if (isMaiz) { scope.harinas.maizCount++; scope.harinas.maizInvoices.add(cod); }
-      else if (isOtraHarina) { scope.harinas.otrasCount++; }
-    }
-    if (isPasta) {
-      scope.pastas.invoices.add(cod);
-      scope.pastas.count++;
-    }
   });
-
-  const totalInvoicesCount = Object.keys(invoiceTotals).length;
-
-  Object.entries(invoiceProductsList).forEach(([invCod, prods]) => {
-    const isHarinaTrigoInv = scope.harinas.trigoInvoices.has(invCod);
-    const isHarinaMaizInv = scope.harinas.maizInvoices.has(invCod);
-    const isPastaInv = scope.pastas.invoices.has(invCod);
-    const h = invoiceHourMap[invCod];
-    const d = invoiceDayMap[invCod];
-
-    if (scope.harinas.invoices.has(invCod)) {
-        if (h !== undefined) scope.harinas.hours[h] = (scope.harinas.hours[h] || 0) + 1;
-        if (d !== undefined && d !== "N/A") scope.harinas.days[d] = (scope.harinas.days[d] || 0) + 1;
-    }
-    if (isPastaInv) {
-        if (h !== undefined) scope.pastas.hours[h] = (scope.pastas.hours[h] || 0) + 1;
-        if (d !== undefined && d !== "N/A") scope.pastas.days[d] = (scope.pastas.days[d] || 0) + 1;
-    }
-
-    const subcats = Array.from(invoiceSubcategoriesList[invCod] || []);
-    
-    subcats.forEach(sub => {
-      const subUp = String(sub).toUpperCase();
-      if (subUp === 'SIN CATEGORÍA') return;
-      
-      if (isHarinaTrigoInv && !subUp.includes('HARINA')) scope.harinas.trigoAffinity[sub] = (scope.harinas.trigoAffinity[sub] || 0) + 1;
-      if (isHarinaMaizInv && !subUp.includes('HARINA')) scope.harinas.maizAffinity[sub] = (scope.harinas.maizAffinity[sub] || 0) + 1;
-      if (isPastaInv && !subUp.includes('PASTA')) scope.pastas.affinity[sub] = (scope.pastas.affinity[sub] || 0) + 1;
-    });
-  });
-
-  const getPeakHourKey = (hObj) => { const s = Object.entries(hObj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? parseInt(s[0][0]) : -1; };
-  const getPeakDayKey = (dObj) => { const s = Object.entries(dObj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? s[0][0] : "N/A"; };
-  const getAvg = (invSet) => { let sum = 0; invSet.forEach(c => sum += (invoiceTotals[c] || 0)); return invSet.size > 0 ? sum / invSet.size : 0; };
-  const getAffinityPercentageList = (obj, totalBaseInvoices) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x => ({name: x[0], value: totalBaseInvoices > 0 ? (x[1] / totalBaseInvoices) * 100 : 0}));
-  const getAvgBasketSize = (invSet) => { let sum = 0; invSet.forEach(c => sum += (invoiceProductsList[c] ? invoiceProductsList[c].length : 0)); return invSet.size > 0 ? sum / invSet.size : 0; };
-
-  const getPieSlices = (countObj, colorRefList) => {
-    const total = Object.values(countObj).reduce((a,b)=>a+b, 0);
-    return Object.entries(countObj).sort((a,b)=>b[1]-a[1]).map(([name, val], idx) => ({
-      label: name,
-      value: val,
-      hexColor: HEX_COLORS[colorRefList.indexOf(name) >= 0 ? colorRefList.indexOf(name) % HEX_COLORS.length : idx % HEX_COLORS.length] || HEX_COLORS[idx % HEX_COLORS.length]
-    }));
-  };
-
-  const totalHarinasCount = scope.harinas.trigoCount + scope.harinas.maizCount + scope.harinas.otrasCount;
-  
-  const harinasMix = [
-    { name: 'Harina de Trigo', value: totalHarinasCount ? (scope.harinas.trigoCount / totalHarinasCount) * 100 : 0 },
-    { name: 'Harina de Maíz', value: totalHarinasCount ? (scope.harinas.maizCount / totalHarinasCount) * 100 : 0 },
-    { name: 'Otras Harinas', value: totalHarinasCount ? (scope.harinas.otrasCount / totalHarinasCount) * 100 : 0 }
-  ].sort((a, b) => b.value - a.value);
-
-  const deepDive = {
-    harinas: {
-      penetration: totalInvoicesCount ? (scope.harinas.invoices.size / totalInvoicesCount) * 100 : 0,
-      mix: harinasMix,
-      avgTicket: getAvg(scope.harinas.invoices),
-      avgItems: scope.harinas.invoices.size > 0 ? totalHarinasCount / scope.harinas.invoices.size : 0,
-      basketSize: getAvgBasketSize(scope.harinas.invoices),
-      peakHour: getHourRange(getPeakHourKey(scope.harinas.hours)),
-      peakDay: getPeakDayKey(scope.harinas.days),
-      topTrigoAff: getAffinityPercentageList(scope.harinas.trigoAffinity, scope.harinas.trigoInvoices.size),
-      topMaizAff: getAffinityPercentageList(scope.harinas.maizAffinity, scope.harinas.maizInvoices.size),
-      chainSlices: getPieSlices(scope.harinas.chainCount, Array.from(chains).sort()),
-      citySlices: getPieSlices(scope.harinas.cityCount, Array.from(uniqueCitiesSet).sort())
-    },
-    pastas: {
-      penetration: totalInvoicesCount ? (scope.pastas.invoices.size / totalInvoicesCount) * 100 : 0,
-      avgTicket: getAvg(scope.pastas.invoices),
-      avgItems: scope.pastas.invoices.size > 0 ? scope.pastas.count / scope.pastas.invoices.size : 0,
-      basketSize: getAvgBasketSize(scope.pastas.invoices),
-      peakHour: getHourRange(getPeakHourKey(scope.pastas.hours)),
-      peakDay: getPeakDayKey(scope.pastas.days),
-      topAff: getAffinityPercentageList(scope.pastas.affinity, scope.pastas.invoices.size)
-    }
-  };
 
   return {
     chainList: Array.from(chains).sort(),
     cityList: Array.from(uniqueCitiesSet).sort(),
     catList: Array.from(uniqueCategoriesSet).sort(),
-    cleanRows,
-    deepDive
+    cleanRows
   };
+};
+
+const matchScope = (row, scope) => {
+  const s = (row.SUBCAT_CLEAN || '').toUpperCase();
+  const c = (row.CAT_CLEAN || '').toUpperCase();
+  const p = (row.PROD_CLEAN || '').toUpperCase();
+  if (scope === 'HARINAS') return s.includes('HARINA') || c.includes('HARINA') || p.includes('HARINA') || p.includes('AREPAR') || p.includes('PROMASA');
+  if (scope === 'PASTA') return s.includes('PASTA') || c.includes('PASTA') || p.includes('PASTA') || p.includes('FIDEO') || p.includes('ESPAGUETI') || p.includes('MACARRON');
+  if (scope === 'ACEITES Y GRASAS') return s.includes('ACEITE') || c.includes('ACEITE') || p.includes('ACEITE') || s.includes('GRASA') || c.includes('GRASA') || p.includes('MARGARINA') || p.includes('MANTEQUILLA');
+  return false;
 };
 
 const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, filterLabel, filterValue, setFilterValue, filterOptions, defaultFilterText, valueSuffix = "unid.", isCurrency = false, hideYAxis = false, showAverageInsteadOfPercentage = false }) => {
@@ -363,16 +252,25 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
     chartData.chartColumns.forEach(col => { col.blocks.forEach(b => allInnerSegments.add(b.name)); });
     const segmentArray = Array.from(allInnerSegments);
     headers.push(...segmentArray);
-    
-    const rows = chartData.chartColumns.map(col => {
-      const row = { 'Segmento Principal': col.label, 'Total General': col.total };
+
+    let csvContent = headers.join(';') + '\n';
+    chartData.chartColumns.forEach(col => {
+      const row = [col.label, col.total];
       const blockMap = {};
       col.blocks.forEach(b => { blockMap[b.name] = b.val; });
-      segmentArray.forEach(seg => { row[seg] = blockMap[seg] !== undefined ? blockMap[seg] : 0; });
-      return row;
+      segmentArray.forEach(seg => { row.push(blockMap[seg] !== undefined ? blockMap[seg] : 0); });
+      csvContent += row.join(';') + '\n';
     });
 
-    handleExportGenericCSV(title, rows);
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    link.setAttribute('download', `${safeTitle}_export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -485,15 +383,22 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
   );
 };
 
-
 export default function App() {
   const [data, setData] = useState(null);
+  
+  // Filtros del Capítulo 1
   const [selectedChain, setSelectedChain] = useState("TODAS");
   const [selectedCity, setSelectedCity] = useState("TODAS");
   const [selectedCategory, setSelectedCategory] = useState("TODAS");
+  
+  // Filtros del Capítulo 2
   const [filterCityForChart1, setFilterCityForChart1] = useState("TODAS"); 
   const [filterChainForChart2, setFilterChainForChart2] = useState("TODAS"); 
   const [filterCityForPies, setFilterCityForPies] = useState("TODAS"); 
+
+  // Filtros del Capítulo 3
+  const [selectedScope, setSelectedScope] = useState("HARINAS");
+
   const [fileName, setFileName] = useState("Datos de Muestra");
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
@@ -535,6 +440,7 @@ export default function App() {
         setFilterCityForChart1("TODAS");
         setFilterChainForChart2("TODAS");
         setFilterCityForPies("TODAS");
+        setSelectedScope("HARINAS");
       } catch (err) {
         setError("Error al leer el archivo. Asegúrate de que sea un CSV válido.");
         console.error(err);
@@ -709,6 +615,7 @@ export default function App() {
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         if (day === 'N/A') return;
+
         xTotals[chain] = (xTotals[chain] || 0) + 1;
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][day] = (xSegmentTotals[chain][day] || 0) + 1;
@@ -718,6 +625,7 @@ export default function App() {
 
     const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
+
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
@@ -762,6 +670,7 @@ export default function App() {
         const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         if (hourNum === -1) return;
+
         const hourLabel = getHourRange(hourNum).replace(' - ', '-');
         xTotals[chain] = (xTotals[chain] || 0) + 1;
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
@@ -780,6 +689,7 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
+      
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
@@ -787,8 +697,10 @@ export default function App() {
         remaining -= perc;
         sumVal += val;
       });
+      
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
+      
       return { label: chain, total, blocks };
     });
 
@@ -811,6 +723,7 @@ export default function App() {
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
+
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
@@ -834,7 +747,9 @@ export default function App() {
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         const val = r.VAL_CLEAN || 0;
+
         if (day === 'N/A') return;
+
         xTotals[chain] = (xTotals[chain] || 0) + val;
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][day] = (xSegmentTotals[chain][day] || 0) + val;
@@ -844,6 +759,7 @@ export default function App() {
 
     const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
+
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
@@ -865,6 +781,7 @@ export default function App() {
       });
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
+
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
@@ -887,7 +804,9 @@ export default function App() {
         const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         const val = r.VAL_CLEAN || 0;
+
         if (hourNum === -1) return;
+
         const hourLabel = getHourRange(hourNum).replace(' - ', '-');
         xTotals[chain] = (xTotals[chain] || 0) + val;
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
@@ -906,6 +825,7 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
+      
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
@@ -913,8 +833,10 @@ export default function App() {
         remaining -= perc;
         sumVal += val;
       });
+      
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
+      
       return { label: chain, total, blocks };
     });
 
@@ -937,6 +859,7 @@ export default function App() {
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
+
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
@@ -980,6 +903,7 @@ export default function App() {
         const perc = total > 0 ? (count / total) * 100 : 0;
         const itemCount = chainSegmentItems[xLabel]?.[seg] || 1; 
         const avg = count / itemCount; 
+        
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
         sumVal += count;
@@ -1002,6 +926,7 @@ export default function App() {
       const generalBlocks = [];
       let remainingGen = 100;
       let sumValGen = 0;
+      
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
@@ -1089,6 +1014,7 @@ export default function App() {
       const generalBlocks = [];
       let remainingGen = 100;
       let sumValGen = 0;
+
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
@@ -1140,6 +1066,7 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
+
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
@@ -1147,8 +1074,10 @@ export default function App() {
         remaining -= perc;
         sumVal += count;
       });
+
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
+      
       return { label: xLabel, total, blocks };
     });
 
@@ -1170,6 +1099,7 @@ export default function App() {
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
+
     return { topSegments, chartColumns };
   }, [data, filterChainForChart2]);
 
@@ -1201,7 +1131,6 @@ export default function App() {
           totalVal += val;
         }
       });
-
       const chains = Object.keys(chainTotals).sort((a,b) => chainTotals[b] - chainTotals[a]);
       const slices = chains.map((chain, idx) => {
         const globalChainIdx = data.chainList.indexOf(chain);
@@ -1211,14 +1140,138 @@ export default function App() {
           hexColor: HEX_COLORS[colorIdx % HEX_COLORS.length] || '#000', colorClass: CHART_COLORS[colorIdx % CHART_COLORS.length]
         };
       });
-
       return { category: catName, total: totalVal, slices };
     });
+
     return pies;
   }, [data, filterCityForPies]);
 
+  const dynamicScopeData = useMemo(() => {
+    if (!data) return null;
+
+    const targetInvoices = new Set();
+    const productCounts = {};
+    const chainCount = {};
+    const cityCount = {};
+    const hours = {};
+    const days = {};
+    let targetItemsCount = 0;
+
+    const invoiceProductsList = {};
+    const invoiceSubcategoriesList = {};
+    const invoiceTotals = {};
+    const totalInvoicesSet = new Set();
+
+    // Recorrido base
+    data.cleanRows.forEach(r => {
+      const cod = r.COD_UNICO;
+      totalInvoicesSet.add(cod);
+
+      if (!invoiceProductsList[cod]) invoiceProductsList[cod] = [];
+      invoiceProductsList[cod].push(r.PROD_CLEAN);
+
+      if (!invoiceSubcategoriesList[cod]) invoiceSubcategoriesList[cod] = new Set();
+      invoiceSubcategoriesList[cod].add(r.SUBCAT_CLEAN || 'Sin Categoría');
+
+      invoiceTotals[cod] = r.VAL_CLEAN; 
+
+      if (matchScope(r, selectedScope)) {
+        targetInvoices.add(cod);
+        targetItemsCount++;
+
+        const p = r.PROD_CLEAN;
+        productCounts[p] = (productCounts[p] || 0) + 1;
+
+        const chain = r.CHAIN_CLEAN || 'Sin Cadena';
+        chainCount[chain] = (chainCount[chain] || 0) + 1;
+
+        const city = r.CIUDAD_CLEAN || 'Sin Ciudad';
+        cityCount[city] = (cityCount[city] || 0) + 1;
+
+        const hour = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
+        if (hour !== -1) hours[hour] = (hours[hour] || 0) + 1;
+
+        let dayStr = "N/A";
+        if (r.DAY_CLEAN) {
+            dayStr = r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase();
+        } else if (r.DATE_CLEAN) {
+            const d = new Date(r.DATE_CLEAN);
+            if(!isNaN(d)) dayStr = new Intl.DateTimeFormat('es-CO', {weekday: 'long'}).format(d);
+            if(dayStr) dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
+        }
+        if (dayStr !== "N/A") days[dayStr] = (days[dayStr] || 0) + 1;
+      }
+    });
+
+    const totalInvoicesCount = totalInvoicesSet.size;
+
+    const topProductsList = Object.entries(productCounts).sort((a,b)=>b[1]-a[1]);
+    const top1Prod = topProductsList[0] ? topProductsList[0][0] : null;
+    const top2Prod = topProductsList[1] ? topProductsList[1][0] : null;
+
+    const top1Invoices = new Set();
+    const top2Invoices = new Set();
+
+    Object.entries(invoiceProductsList).forEach(([cod, prods]) => {
+      if (top1Prod && prods.includes(top1Prod)) top1Invoices.add(cod);
+      if (top2Prod && prods.includes(top2Prod)) top2Invoices.add(cod);
+    });
+
+    const top1Affinity = {};
+    const top2Affinity = {};
+
+    Array.from(targetInvoices).forEach(cod => {
+      const subcats = Array.from(invoiceSubcategoriesList[cod] || []);
+      subcats.forEach(sub => {
+        if (matchScope({SUBCAT_CLEAN: sub, CAT_CLEAN: '', PROD_CLEAN: ''}, selectedScope)) return;
+        if (sub === 'Sin Categoría') return;
+
+        if (top1Invoices.has(cod)) top1Affinity[sub] = (top1Affinity[sub] || 0) + 1;
+        if (top2Invoices.has(cod)) top2Affinity[sub] = (top2Affinity[sub] || 0) + 1;
+      });
+    });
+
+    let sumTicket = 0;
+    let sumBasketSize = 0;
+    targetInvoices.forEach(c => {
+      sumTicket += (invoiceTotals[c] || 0);
+      sumBasketSize += (invoiceProductsList[c] ? invoiceProductsList[c].length : 0);
+    });
+
+    const avgTicket = targetInvoices.size > 0 ? sumTicket / targetInvoices.size : 0;
+    const avgBasketSize = targetInvoices.size > 0 ? sumBasketSize / targetInvoices.size : 0;
+
+    const mix = topProductsList.slice(0, 5).map(p => ({
+      name: p[0], value: targetItemsCount > 0 ? (p[1] / targetItemsCount) * 100 : 0
+    }));
+
+    return {
+      penetration: totalInvoicesCount > 0 ? (targetInvoices.size / totalInvoicesCount) * 100 : 0,
+      avgTicket,
+      avgItems: targetInvoices.size > 0 ? targetItemsCount / targetInvoices.size : 0,
+      basketSize: avgBasketSize,
+      peakHour: getHourRange(getPeakHourKey(hours)),
+      peakDay: getPeakDayKey(days),
+      top1Name: top1Prod || "Producto Top 1",
+      top2Name: top2Prod || "Producto Top 2",
+      top1Affinity: getAffinityPercentageList(top1Affinity, top1Invoices.size),
+      top2Affinity: getAffinityPercentageList(top2Affinity, top2Invoices.size),
+      mix,
+      chainSlices: getPieSlices(chainCount, data.chainList),
+      citySlices: getPieSlices(cityCount, data.cityList)
+    };
+  }, [data, selectedScope]);
+
   const formatCurrency = (val) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
   const formatNumber = (val) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(val);
+
+  const ScopeIcon = selectedScope === 'HARINAS' ? ChefHat : selectedScope === 'PASTA' ? Utensils : Droplet;
+  const getTheme = () => {
+    if(selectedScope === 'HARINAS') return { border: 'border-t-amber-400 dark:border-t-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-amber-600 dark:text-amber-400', bar1: 'bg-amber-500', bar2: 'bg-yellow-400' };
+    if(selectedScope === 'PASTA') return { border: 'border-t-red-400 dark:border-t-red-500', bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-600 dark:text-red-400', bar1: 'bg-red-500', bar2: 'bg-rose-400' };
+    return { border: 'border-t-emerald-400 dark:border-t-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-600 dark:text-emerald-400', bar1: 'bg-emerald-500', bar2: 'bg-teal-400' };
+  };
+  const theme = getTheme();
 
   if (!data && !error) return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900"><div className="animate-pulse text-xl text-indigo-600 dark:text-indigo-400 font-semibold">Analizando Datos...</div></div>;
 
@@ -1279,7 +1332,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
                     <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-800 border-blue-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg"><Calendar size={24} /></div><div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día Pico de Tráfico</p><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topDay}</h3><p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">{chapter1Stats.kpis.topDayCount} facturas</p></div></div></Card>
                     <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 border-emerald-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg"><Clock size={24} /></div><div className="flex-1"><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora Más Concurrida</p><div className="flex items-center gap-2"><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topTxHourRange}</h3>{chapter1Stats.kpis.topTxJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">{chapter1Stats.kpis.topTxJornada}</span>}</div><p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">{chapter1Stats.kpis.topTxHourCount} facturas • <span className="text-gray-500 dark:text-gray-400">Tk Prom: {formatCurrency(chapter1Stats.kpis.topTxHourAvgVal)}</span></p></div></div></Card>
-                    <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-gray-800 dark:to-gray-800 border-amber-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-lg"><TrendingUp size={24} /></div><div className="flex-1"><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora de Mayor Gasto (Ticket)</p><div className="flex items-center gap-2"><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topAvgHourRange}</h3>{chapter1Stats.kpis.topAvgJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">{chapter1Stats.kpis.topAvgJornada}</span>}</div><p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(chapter1Stats.kpis.topAvgHourVal)} prom.</p></div></div></Card>
+                    <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-gray-800 dark:to-gray-800 border-amber-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-lg"><TrendingUp size={24} /></div><div className="flex-1"><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora de Mayor Gasto (Ticket)</p><div className="flex items-center gap-2"><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topAvgHourRange}</h3>{chapter1Stats.kpis.topAvgJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-emerald-400">{chapter1Stats.kpis.topAvgJornada}</span>}</div><p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(chapter1Stats.kpis.topAvgHourVal)} prom.</p></div></div></Card>
                   </div>
 
                   <div className="space-y-8">
@@ -1325,7 +1378,7 @@ export default function App() {
                       </div>
                     </div>
 
-                  {/* VENTA CRUZADA TOP 20 */}
+                  {/* VENTA CRUZADA TOP 20 (Mostrando 10 afinidades) */}
                   <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-3">
@@ -1364,14 +1417,13 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* NUEVOS GRÁFICOS APILADOS */}
+                  {/* GRÁFICOS APILADOS DE TRÁFICO Y VENTAS */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
                     <PercentageStackedBarChart chartData={dayTrafficData} title="Distribución Tráfico por Día" description="% de Facturas (clientes) de cada Cadena distribuido según el Día." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
                     <PercentageStackedBarChart chartData={hourTrafficData} title="Distribución Tráfico por Hora" description="% de Facturas (clientes) de cada Cadena distribuido en su Franja Horaria." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
                     <PercentageStackedBarChart chartData={daySalesData} title="Distribución Ventas por Día" description="% del Dinero total (Ventas) de cada Cadena distribuido según el Día." icon={Calendar} isCurrency={true} hideYAxis={true} />
                     <PercentageStackedBarChart chartData={hourSalesData} title="Distribución Ventas por Hora" description="% del Dinero total (Ventas) de cada Cadena distribuido en su Franja Horaria." icon={Clock} isCurrency={true} hideYAxis={true} />
                   </div>
-
                 </div>
               </>
             ) : (
@@ -1435,121 +1487,114 @@ export default function App() {
               </div>
             </section>
 
-            {/* CAPÍTULO 3 */}
+            {/* CAPÍTULO 3 DINÁMICO */}
             <section className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-amber-500 pl-3">Capítulo 3: Scope Harinas y Pastas (Global)</h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-amber-500 pl-3">Capítulo 3: Deep Dive por Categoría Estratégica</h2>
                 
-                {/* SCOPE HARINAS */}
-                <Card className="border-t-4 border-t-amber-400 dark:border-t-amber-500">
+                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm w-full sm:w-auto">
+                  <Filter size={20} className="text-gray-500 dark:text-gray-400" />
+                  <label className="text-sm font-semibold text-gray-600 dark:text-gray-300">Explorar Categoría:</label>
+                  <select 
+                    value={selectedScope} 
+                    onChange={(e) => setSelectedScope(e.target.value)} 
+                    className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm font-bold cursor-pointer px-3 py-1.5 shadow-sm"
+                  >
+                    <option value="HARINAS">HARINAS</option>
+                    <option value="PASTA">PASTA</option>
+                    <option value="ACEITES Y GRASAS">ACEITES Y GRASAS</option>
+                  </select>
+                </div>
+              </div>
+
+              {dynamicScopeData && (
+                <Card className={`border-t-4 ${theme.border}`}>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                      <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full"><ChefHat size={28}/></div>
+                      <div className={`p-3 rounded-full ${theme.bg} ${theme.text}`}><ScopeIcon size={28}/></div>
                       <div>
-                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Scope: Harinas</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className="font-bold text-amber-600 dark:text-amber-400">{data.deepDive.harinas.penetration.toFixed(1)}%</span> de toda la muestra.</p>
+                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Scope: {selectedScope}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className={`font-bold ${theme.text}`}>{dynamicScopeData.penetration.toFixed(1)}%</span> de toda la muestra.</p>
                       </div>
                     </div>
                     <button 
                       onClick={() => {
                         const rows = [
-                          { Indicador: 'Penetración General (%)', Detalle: '', Valor: data.deepDive.harinas.penetration.toFixed(2) + '%' },
-                          { Indicador: 'Ticket Promedio ($)', Detalle: '', Valor: data.deepDive.harinas.avgTicket.toFixed(0) },
-                          { Indicador: 'Promedio Items Harina', Detalle: '', Valor: data.deepDive.harinas.avgItems.toFixed(2) },
-                          ...data.deepDive.harinas.mix.map(m => ({ Indicador: 'Mix (% Unidades)', Detalle: m.name, Valor: m.value.toFixed(2) + '%' })),
-                          ...data.deepDive.harinas.topTrigoAff.map(a => ({ Indicador: 'Afinidad Trigo', Detalle: a.name, Valor: a.value.toFixed(2) + '%' })),
-                          ...data.deepDive.harinas.topMaizAff.map(a => ({ Indicador: 'Afinidad Maiz', Detalle: a.name, Valor: a.value.toFixed(2) + '%' })),
-                          ...data.deepDive.harinas.chainSlices.map(s => ({ Indicador: 'Unidades Vendidas por Cadena', Detalle: s.label, Valor: s.value })),
-                          ...data.deepDive.harinas.citySlices.map(s => ({ Indicador: 'Unidades Vendidas por Ciudad', Detalle: s.label, Valor: s.value }))
+                          { Indicador: 'Penetración General (%)', Detalle: '', Valor: dynamicScopeData.penetration.toFixed(2) + '%' },
+                          { Indicador: 'Ticket Promedio ($)', Detalle: '', Valor: dynamicScopeData.avgTicket.toFixed(0) },
+                          { Indicador: 'Promedio Items Categoría', Detalle: '', Valor: dynamicScopeData.avgItems.toFixed(2) },
+                          { Indicador: 'Total Items Canasta', Detalle: '', Valor: dynamicScopeData.basketSize.toFixed(2) },
+                          ...dynamicScopeData.mix.map(m => ({ Indicador: 'Mix (% Unidades)', Detalle: m.name, Valor: m.value.toFixed(2) + '%' })),
+                          ...dynamicScopeData.top1Affinity.map(a => ({ Indicador: `Afinidad: ${dynamicScopeData.top1Name}`, Detalle: a.name, Valor: a.value.toFixed(2) + '%' })),
+                          ...dynamicScopeData.top2Affinity.map(a => ({ Indicador: `Afinidad: ${dynamicScopeData.top2Name}`, Detalle: a.name, Valor: a.value.toFixed(2) + '%' })),
+                          ...dynamicScopeData.chainSlices.map(s => ({ Indicador: 'Ventas por Cadena (Unid.)', Detalle: s.label, Valor: s.value })),
+                          ...dynamicScopeData.citySlices.map(s => ({ Indicador: 'Ventas por Ciudad (Unid.)', Detalle: s.label, Valor: s.value }))
                         ];
-                        handleExportGenericCSV('Scope_Harinas_Completo', rows);
+                        handleExportGenericCSV(`Scope_${selectedScope}`, rows);
                       }} 
-                      className="flex items-center justify-center p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/60 transition-colors shadow-sm" title="Descargar Resumen de Harinas">
+                      className={`flex items-center justify-center p-2 rounded-lg ${theme.bg} ${theme.text} transition-colors shadow-sm`} title={`Descargar Resumen de ${selectedScope}`}>
                       <Download size={20} />
                     </button>
                   </div>
 
                   <div className="flex gap-2 sm:gap-4 mb-8 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex-wrap">
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.harinas.avgTicket)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Ítems Harina</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.harinas.avgItems)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Total Canasta</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.harinas.basketSize)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.harinas.peakHour}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p><p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400">{data.deepDive.harinas.peakDay}</p></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(dynamicScopeData.avgTicket)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Ítems Categoría</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(dynamicScopeData.avgItems)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Total Canasta</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(dynamicScopeData.basketSize)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{dynamicScopeData.peakHour}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p><p className={`text-base sm:text-lg font-bold ${theme.text}`}>{dynamicScopeData.peakDay}</p></div>
                   </div>
 
                   <div className="mb-8">
-                    <h4 className="text-md font-bold mb-4 flex items-center gap-2 dark:text-gray-200"><PieChart size={18} className="text-amber-500 dark:text-amber-400"/> Mix de Harinas (% unidades)</h4>
-                    {data.deepDive.harinas.mix.map((item, idx) => {
-                      const colors = { 'Harina de Trigo': 'bg-amber-500 dark:bg-amber-500', 'Harina de Maíz': 'bg-yellow-400 dark:bg-yellow-500', 'Otras Harinas': 'bg-orange-400 dark:bg-orange-500' };
-                      return <ProgressBar key={idx} label={item.name} value={item.value} max={Math.max(...data.deepDive.harinas.mix.map(i=>i.value))} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass={colors[item.name] || "bg-amber-500"} />;
-                    })}
+                    <h4 className="text-md font-bold mb-4 flex items-center gap-2 dark:text-gray-200"><PieChart size={18} className={theme.text}/> Mix de Productos (Top 5 en Unidades)</h4>
+                    {dynamicScopeData.mix.map((item, idx) => (
+                      <ProgressBar key={idx} label={item.name} value={item.value} max={Math.max(...dynamicScopeData.mix.map(i=>i.value))} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass={CHART_COLORS[idx % CHART_COLORS.length]} />
+                    ))}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
-                      <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Qué se compra con Trigo:</h4>
-                      {data.deepDive.harinas.topTrigoAff.length > 0 ? data.deepDive.harinas.topTrigoAff.map((p, idx) => <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.harinas.topTrigoAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-amber-500 dark:bg-amber-500"/>) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin cruces</p>}
+                      <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Qué se compra con: {dynamicScopeData.top1Name}</h4>
+                      {dynamicScopeData.top1Affinity.length > 0 ? dynamicScopeData.top1Affinity.map((p, idx) => (
+                        <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.top1Affinity[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass={theme.bar1}/>
+                      )) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin suficientes cruces para mostrar</p>}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Qué se compra con Maíz:</h4>
-                      {data.deepDive.harinas.topMaizAff.length > 0 ? data.deepDive.harinas.topMaizAff.map((p, idx) => <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.harinas.topMaizAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-yellow-400 dark:bg-yellow-500"/>) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin cruces</p>}
+                      <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Qué se compra con: {dynamicScopeData.top2Name}</h4>
+                      {dynamicScopeData.top2Affinity.length > 0 ? dynamicScopeData.top2Affinity.map((p, idx) => (
+                        <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.top2Affinity[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass={theme.bar2}/>
+                      )) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin suficientes cruces para mostrar</p>}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-8 border-t border-gray-100 dark:border-gray-700 pt-6">
                     <div className="flex flex-col items-center">
                       <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">¿Dónde se compran? (Por Cadena)</h4>
-                      <SVGDonut slices={data.deepDive.harinas.chainSlices} size="w-28 h-28" />
-                      <div className="mt-4 w-full max-w-xs space-y-2">{data.deepDive.harinas.chainSlices.map(s => <div key={s.label} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2 truncate pr-2"><div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div><span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{((s.value / data.deepDive.harinas.chainSlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%</span></div>)}</div>
+                      <SVGDonut slices={dynamicScopeData.chainSlices} size="w-28 h-28" />
+                      <div className="mt-4 w-full max-w-xs space-y-2">
+                        {dynamicScopeData.chainSlices.map(s => (
+                          <div key={s.label} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 truncate pr-2"><div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div>
+                            <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{dynamicScopeData.chainSlices.reduce((a,b)=>a+b.value, 0) > 0 ? ((s.value / dynamicScopeData.chainSlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1) : 0}%</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div className="flex flex-col items-center">
                       <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">¿Dónde se compran? (Por Ciudad)</h4>
-                      <SVGDonut slices={data.deepDive.harinas.citySlices} size="w-28 h-28" />
-                      <div className="mt-4 w-full max-w-xs space-y-2">{data.deepDive.harinas.citySlices.map(s => <div key={s.label} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2 truncate pr-2"><div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div><span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{((s.value / data.deepDive.harinas.citySlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%</span></div>)}</div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* SCOPE PASTAS */}
-                <Card className="border-t-4 border-t-red-400 dark:border-t-red-500">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-full"><Utensils size={28}/></div>
-                      <div>
-                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Scope: Pastas</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className="font-bold text-red-600 dark:text-red-400">{data.deepDive.pastas.penetration.toFixed(1)}%</span> de toda la muestra.</p>
+                      <SVGDonut slices={dynamicScopeData.citySlices} size="w-28 h-28" />
+                      <div className="mt-4 w-full max-w-xs space-y-2">
+                        {dynamicScopeData.citySlices.map(s => (
+                          <div key={s.label} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 truncate pr-2"><div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div>
+                            <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{dynamicScopeData.citySlices.reduce((a,b)=>a+b.value, 0) > 0 ? ((s.value / dynamicScopeData.citySlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1) : 0}%</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    <button 
-                      onClick={() => {
-                        const rows = [
-                          { Indicador: 'Penetración General (%)', Detalle: '', Valor: data.deepDive.pastas.penetration.toFixed(2) + '%' },
-                          { Indicador: 'Ticket Promedio ($)', Detalle: '', Valor: data.deepDive.pastas.avgTicket.toFixed(0) },
-                          { Indicador: 'Promedio Items Pasta', Detalle: '', Valor: data.deepDive.pastas.avgItems.toFixed(2) },
-                          ...data.deepDive.pastas.topAff.map(a => ({ Indicador: 'Afinidad de Compra', Detalle: a.name, Valor: a.value.toFixed(2) + '%' }))
-                        ];
-                        handleExportGenericCSV('Scope_Pastas_Completo', rows);
-                      }} 
-                      className="flex items-center justify-center p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors shadow-sm" title="Descargar Resumen de Pastas">
-                      <Download size={20} />
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2 sm:gap-4 mb-8 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex-wrap">
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.pastas.avgTicket)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Ítems Pasta</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.avgItems)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Total Canasta</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.basketSize)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.pastas.peakHour}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p><p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400">{data.deepDive.pastas.peakDay}</p></div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-md font-bold mb-4 flex items-center gap-2 dark:text-gray-200"><Layers size={18} className="text-red-500 dark:text-red-400"/> Qué se compra junto con Pastas:</h4>
-                    {data.deepDive.pastas.topAff.length > 0 ? data.deepDive.pastas.topAff.map((p, idx) => <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.pastas.topAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-red-500 dark:bg-red-500"/>) : <p className="text-sm text-gray-400 dark:text-gray-500">No hay suficientes datos de cruce.</p>}
                   </div>
                 </Card>
-
-              </div>
+              )}
             </section>
           </>
         )}

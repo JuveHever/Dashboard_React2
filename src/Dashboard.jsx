@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw } from 'lucide-react';
+import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw, Download } from 'lucide-react';
 
 // --- DATOS DE MUESTRA ---
 const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_NOMBRE_PROD;CATEGORIA;SUBCATEGORIA;EDFP_VALOR_PROD;CIUDAD
@@ -32,12 +32,39 @@ const CHART_COLORS = [
   'bg-cyan-500', 'bg-purple-500', 'bg-pink-500', 'bg-lime-500'
 ];
 
-// Colores HEX para las gráficas SVG (Donas) equivalentes a la paleta de Tailwind
 const HEX_COLORS = [
   '#6366f1', '#d946ef', '#14b8a6', '#f59e0b', 
   '#f43f5e', '#3b82f6', '#10b981', '#f97316', 
   '#06b6d4', '#a855f7', '#ec4899', '#84cc16'
 ];
+
+// --- FUNCIÓN DE EXPORTACIÓN GENÉRICA ---
+const handleExportGenericCSV = (filename, dataRows) => {
+  if (!dataRows || dataRows.length === 0) return;
+  const headers = Object.keys(dataRows[0]);
+  let csvContent = headers.join(';') + '\n';
+  
+  dataRows.forEach(row => {
+    const rowStr = headers.map(h => {
+      let val = row[h];
+      if (val === null || val === undefined) val = '';
+      val = String(val).replace(/"/g, '""');
+      if (val.includes(';')) val = `"${val}"`;
+      return val;
+    }).join(';');
+    csvContent += rowStr + '\n';
+  });
+
+  const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const safeTitle = filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  link.setAttribute('download', `${safeTitle}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 ${className}`}>
@@ -62,7 +89,6 @@ const ProgressBar = ({ label, value, max, formatValue, colorClass = "bg-blue-500
   );
 };
 
-// --- COMPONENTE NUEVO: GRÁFICA DE DONA SVG ---
 const SVGDonut = ({ slices, size = "w-28 h-28 sm:w-32 sm:h-32" }) => {
   const total = slices.reduce((acc, s) => acc + s.value, 0);
   let offset = 0;
@@ -328,119 +354,146 @@ const analyzeData = (data) => {
   };
 };
 
-// --- COMPONENTE UNIFICADO: GRÁFICA DE BARRAS APILADAS AL 100% (CON EJE Y) ---
-const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, filterLabel, filterValue, setFilterValue, filterOptions, defaultFilterText, valueSuffix = "unid.", isCurrency = false, hideYAxis = false, showAverageInsteadOfPercentage = false }) => (
-  <Card className="flex flex-col h-full">
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
-      <div>
-        <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><Icon className="text-indigo-500 dark:text-indigo-400"/> {title}</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
+const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, filterLabel, filterValue, setFilterValue, filterOptions, defaultFilterText, valueSuffix = "unid.", isCurrency = false, hideYAxis = false, showAverageInsteadOfPercentage = false }) => {
+  
+  const handleDownloadCSV = () => {
+    if (!chartData || !chartData.chartColumns) return;
+    const headers = ['Segmento Principal', 'Total General'];
+    const allInnerSegments = new Set();
+    chartData.chartColumns.forEach(col => { col.blocks.forEach(b => allInnerSegments.add(b.name)); });
+    const segmentArray = Array.from(allInnerSegments);
+    headers.push(...segmentArray);
+    
+    const rows = chartData.chartColumns.map(col => {
+      const row = { 'Segmento Principal': col.label, 'Total General': col.total };
+      const blockMap = {};
+      col.blocks.forEach(b => { blockMap[b.name] = b.val; });
+      segmentArray.forEach(seg => { row[seg] = blockMap[seg] !== undefined ? blockMap[seg] : 0; });
+      return row;
+    });
+
+    handleExportGenericCSV(title, rows);
+  };
+
+  return (
+    <Card className="flex flex-col h-full relative group">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
+        <div>
+          <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><Icon className="text-indigo-500 dark:text-indigo-400"/> {title}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {filterLabel && (
+            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg border border-gray-200 dark:border-gray-600 max-w-full sm:max-w-xs">
+              <Filter size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-300 flex-shrink-0">{filterLabel}:</label>
+              <select 
+                value={filterValue} 
+                onChange={(e) => setFilterValue(e.target.value)} 
+                className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer w-full truncate shadow-sm py-1 pl-1 pr-6"
+              >
+                <option value="TODAS">{defaultFilterText}</option>
+                {filterOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+              </select>
+            </div>
+          )}
+          
+          {chartData && chartData.chartColumns.length > 0 && (
+            <button 
+              onClick={handleDownloadCSV}
+              className="flex items-center justify-center p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/60 border border-indigo-100 dark:border-indigo-800/50 transition-colors shadow-sm flex-shrink-0"
+              title="Descargar datos en Excel (CSV)"
+            >
+              <Download size={20} />
+            </button>
+          )}
+        </div>
       </div>
-      {filterLabel && (
-        <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg border border-gray-200 dark:border-gray-600 max-w-full sm:max-w-xs">
-          <Filter size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
-          <label className="text-sm font-medium text-gray-500 dark:text-gray-300 flex-shrink-0">{filterLabel}:</label>
-          <select 
-            value={filterValue} 
-            onChange={(e) => setFilterValue(e.target.value)} 
-            className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer w-full truncate shadow-sm"
-          >
-            <option value="TODAS">{defaultFilterText}</option>
-            {filterOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-        </div>
-      )}
-    </div>
 
-    {chartData && chartData.chartColumns.length > 0 ? (
-      <>
-        <div className="flex flex-wrap gap-x-4 gap-y-2 mb-8 justify-center">
-          {chartData.topSegments.map((segment, idx) => (
-            <div key={segment} className="flex items-center gap-1.5">
-              <div className={`w-3.5 h-3.5 rounded-sm shadow-sm ${CHART_COLORS[idx % CHART_COLORS.length]}`}></div>
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{segment}</span>
-            </div>
-          ))}
-          {chartData.chartColumns.some(col => col.blocks.some(b => b.name === 'Otros')) && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-3.5 h-3.5 rounded-sm shadow-sm bg-gray-300 dark:bg-gray-600"></div>
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Otros</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-1 w-full gap-2 relative">
-          {!hideYAxis && (
-            <div className="flex flex-col justify-between items-end pb-8 pr-2 border-r border-gray-200 dark:border-gray-700 w-10 sm:w-12 flex-shrink-0 relative z-10">
-               {['100%', '75%', '50%', '25%', '0%'].map((tick, i) => (
-                  <span key={i} className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap transform translate-y-1/2">{tick}</span>
-               ))}
-            </div>
-          )}
-
-          <div className="flex-1 flex flex-col min-h-[280px]">
-            {/* ÁREA DE BARRAS */}
-            <div className="flex items-end justify-around flex-1 w-full relative">
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                  {[...Array(5)].map((_, i) => <div key={i} className="w-full border-t border-gray-100 dark:border-gray-800/50"></div>)}
+      {chartData && chartData.chartColumns.length > 0 ? (
+        <>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 mb-8 justify-center">
+            {chartData.topSegments.map((segment, idx) => (
+              <div key={segment} className="flex items-center gap-1.5">
+                <div className={`w-3.5 h-3.5 rounded-sm shadow-sm ${CHART_COLORS[idx % CHART_COLORS.length]}`}></div>
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">{segment}</span>
               </div>
+            ))}
+            {chartData.chartColumns.some(col => col.blocks.some(b => b.name === 'Otros')) && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-3.5 h-3.5 rounded-sm shadow-sm bg-gray-300 dark:bg-gray-600"></div>
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Otros</span>
+              </div>
+            )}
+          </div>
 
-              {chartData.chartColumns.map(col => (
-                <div key={col.label} className={`flex-1 flex flex-col items-center justify-end h-full z-10 px-1 sm:px-2 min-w-0 ${col.isGeneral ? 'border-l-2 border-dashed border-indigo-200 dark:border-indigo-800/50 pl-2 sm:pl-3 ml-1 sm:ml-2 relative' : ''}`}>
-                  {col.isGeneral && <span className="absolute -top-7 text-[9px] sm:text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded shadow-sm">Global</span>}
-                  <div className={`w-full max-w-[60px] flex flex-col-reverse h-full bg-gray-100 dark:bg-gray-700/50 rounded-t-sm overflow-hidden shadow-inner group ${col.isGeneral ? 'ring-2 ring-indigo-500/30 dark:ring-indigo-400/30' : ''}`}>
-                    {col.blocks.map(b => b.perc > 0 && (
-                      <div 
-                        key={b.name} 
-                        style={{ height: `${b.perc}%` }} 
-                        className={`${b.color} w-full flex items-center justify-center transition-all hover:opacity-90 cursor-crosshair border-b border-white/20 dark:border-black/20 last:border-b-0`} 
-                        title={`${col.label}\n${b.name}\n${b.perc.toFixed(1)}% | ${showAverageInsteadOfPercentage ? 'Promedio: ' : 'Total: '}${isCurrency ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(b.val) : Number(b.val).toFixed(1) + ' ' + valueSuffix}`}
-                      >
-                        {b.perc > 8 && <span className="text-[9px] sm:text-[10px] text-white font-bold tracking-tight px-1 truncate drop-shadow-md">
-                          {showAverageInsteadOfPercentage 
-                            ? (isCurrency ? new Intl.NumberFormat('es-CO', { notation: 'compact', style: 'currency', currency: 'COP', maximumFractionDigits: 1 }).format(b.val) : Number(b.val).toFixed(1)) 
-                            : `${b.perc.toFixed(0)}%`}
-                        </span>}
-                      </div>
-                    ))}
+          <div className="flex flex-1 w-full gap-2 relative">
+            {!hideYAxis && (
+              <div className="flex flex-col justify-between items-end pb-8 pr-2 border-r border-gray-200 dark:border-gray-700 w-10 sm:w-12 flex-shrink-0 relative z-10">
+                 {['100%', '75%', '50%', '25%', '0%'].map((tick, i) => (
+                    <span key={i} className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap transform translate-y-1/2">{tick}</span>
+                 ))}
+              </div>
+            )}
+
+            <div className="flex-1 flex flex-col min-h-[280px]">
+              <div className="flex items-end justify-around flex-1 w-full relative">
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                    {[...Array(5)].map((_, i) => <div key={i} className="w-full border-t border-gray-100 dark:border-gray-800/50"></div>)}
+                </div>
+
+                {chartData.chartColumns.map(col => (
+                  <div key={col.label} className={`flex-1 flex flex-col items-center justify-end h-full z-10 px-1 sm:px-2 min-w-0 ${col.isGeneral ? 'border-l-2 border-dashed border-indigo-200 dark:border-indigo-800/50 pl-2 sm:pl-3 ml-1 sm:ml-2 relative' : ''}`}>
+                    {col.isGeneral && <span className="absolute -top-7 text-[9px] sm:text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded shadow-sm">Global</span>}
+                    <div className={`w-full max-w-[60px] flex flex-col-reverse h-full bg-gray-100 dark:bg-gray-700/50 rounded-t-sm overflow-hidden shadow-inner group ${col.isGeneral ? 'ring-2 ring-indigo-500/30 dark:ring-indigo-400/30' : ''}`}>
+                      {col.blocks.map(b => b.perc > 0 && (
+                        <div 
+                          key={b.name} 
+                          style={{ height: `${b.perc}%` }} 
+                          className={`${b.color} w-full flex items-center justify-center transition-all hover:opacity-90 cursor-crosshair border-b border-white/20 dark:border-black/20 last:border-b-0`} 
+                          title={`${col.label}\n${b.name}\n${b.perc.toFixed(1)}% | ${showAverageInsteadOfPercentage ? 'Promedio: ' : 'Total: '}${isCurrency ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(b.val) : Number(b.val).toFixed(1) + ' ' + valueSuffix}`}
+                        >
+                          {b.perc > 8 && <span className="text-[9px] sm:text-[10px] text-white font-bold tracking-tight px-1 truncate drop-shadow-md">
+                            {showAverageInsteadOfPercentage 
+                              ? (isCurrency ? new Intl.NumberFormat('es-CO', { notation: 'compact', style: 'currency', currency: 'COP', maximumFractionDigits: 1 }).format(b.val) : Number(b.val).toFixed(1)) 
+                              : `${b.perc.toFixed(0)}%`}
+                          </span>}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-            
-            {/* EJE X */}
-            <div className="flex justify-around w-full mt-3 h-10">
-              {chartData.chartColumns.map(col => (
-                <div key={col.label} className={`flex-1 flex flex-col items-center justify-start text-center px-1 sm:px-2 min-w-0 ${col.isGeneral ? 'border-l-2 border-transparent pl-2 sm:pl-3 ml-1 sm:ml-2' : ''}`}>
-                  <span className={`text-[9px] sm:text-[10px] font-bold w-full break-words leading-tight line-clamp-2 ${col.isGeneral ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'}`} title={col.label}>
-                    {col.label}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
+              
+              <div className="flex justify-around w-full mt-3 h-10">
+                {chartData.chartColumns.map(col => (
+                  <div key={col.label} className={`flex-1 flex flex-col items-center justify-start text-center px-1 sm:px-2 min-w-0 ${col.isGeneral ? 'border-l-2 border-transparent pl-2 sm:pl-3 ml-1 sm:ml-2' : ''}`}>
+                    <span className={`text-[9px] sm:text-[10px] font-bold w-full break-words leading-tight line-clamp-2 ${col.isGeneral ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300'}`} title={col.label}>
+                      {col.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </>
-    ) : (
-      <div className="h-40 flex items-center justify-center text-gray-500 dark:text-gray-400 font-medium">No hay datos suficientes para esta selección.</div>
-    )}
-  </Card>
-);
+        </>
+      ) : (
+        <div className="h-40 flex items-center justify-center text-gray-500 dark:text-gray-400 font-medium">No hay datos suficientes para esta selección.</div>
+      )}
+    </Card>
+  );
+};
 
 
 export default function App() {
   const [data, setData] = useState(null);
-  
-  // Filtros del Capítulo 1
   const [selectedChain, setSelectedChain] = useState("TODAS");
   const [selectedCity, setSelectedCity] = useState("TODAS");
   const [selectedCategory, setSelectedCategory] = useState("TODAS");
-  
-  // Filtros del Capítulo 2
   const [filterCityForChart1, setFilterCityForChart1] = useState("TODAS"); 
   const [filterChainForChart2, setFilterChainForChart2] = useState("TODAS"); 
   const [filterCityForPies, setFilterCityForPies] = useState("TODAS"); 
-
   const [fileName, setFileName] = useState("Datos de Muestra");
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
@@ -509,7 +562,7 @@ export default function App() {
     const subcategoriesCount = {};
     const productsCount = {};
     const catProducts = {};
-    const invoiceSubcats = {}; // NUEVO: Para guardar las categorías por factura
+    const invoiceSubcats = {}; 
 
     filteredRows.forEach(row => {
       const cod = row.COD_UNICO;
@@ -526,7 +579,6 @@ export default function App() {
 
       totalItems += 1;
 
-      // NUEVO: Agrupamos las subcategorías presentes en cada factura única
       if (!invoiceSubcats[cod]) invoiceSubcats[cod] = new Set();
       invoiceSubcats[cod].add(subcat);
 
@@ -601,7 +653,6 @@ export default function App() {
       .map(([name, count]) => ({ name, count, percentage: totalItems > 0 ? (count / totalItems) * 100 : 0 }))
       .sort((a,b) => b.percentage - a.percentage).slice(0, 20);
 
-    // NUEVO: Calcular afinidades cruzadas para el Top 20
     topSubcategories.forEach(topSub => {
       const affinityCount = {};
       let totalInvoicesWithThisSub = 0;
@@ -638,9 +689,6 @@ export default function App() {
     };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
-  // --------------------------------------------------------------------------------
-  // BARRAS APILADAS % DE TRÁFICO POR DÍA + COLUMNA GENERAL
-  // --------------------------------------------------------------------------------
   const dayTrafficData = useMemo(() => {
     if (!data) return null;
     let filteredRows = data.cleanRows;
@@ -658,24 +706,18 @@ export default function App() {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
         invoiceTracker[cod] = true; 
-        
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
-
         if (day === 'N/A') return;
-
         xTotals[chain] = (xTotals[chain] || 0) + 1;
-        
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][day] = (xSegmentTotals[chain][day] || 0) + 1;
-        
         globalSegmentTotals[day] = (globalSegmentTotals[day] || 0) + 1;
       }
     });
 
     const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
-
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
@@ -701,9 +743,6 @@ export default function App() {
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
-  // --------------------------------------------------------------------------------
-  // BARRAS APILADAS % DE TRÁFICO POR FRANJA HORARIA + COLUMNA GENERAL
-  // --------------------------------------------------------------------------------
   const hourTrafficData = useMemo(() => {
     if (!data) return null;
     let filteredRows = data.cleanRows;
@@ -720,30 +759,19 @@ export default function App() {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
         invoiceTracker[cod] = true;
-        
         const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
-
         if (hourNum === -1) return;
-
         const hourLabel = getHourRange(hourNum).replace(' - ', '-');
-
         xTotals[chain] = (xTotals[chain] || 0) + 1;
-        
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][hourLabel] = (xSegmentTotals[chain][hourLabel] || 0) + 1;
-        
         if (!globalSegmentTotals[hourNum]) globalSegmentTotals[hourNum] = { label: hourLabel, val: 0 };
         globalSegmentTotals[hourNum].val += 1;
       }
     });
 
-    const topHourNums = Object.entries(globalSegmentTotals)
-      .sort((a,b) => b[1].val - a[1].val)
-      .slice(0, 10)
-      .map(x => parseInt(x[0]))
-      .sort((a, b) => a - b);
-
+    const topHourNums = Object.entries(globalSegmentTotals).sort((a,b) => b[1].val - a[1].val).slice(0, 10).map(x => parseInt(x[0])).sort((a, b) => a - b);
     const topSegments = topHourNums.map(h => globalSegmentTotals[h].label);
     const xList = Object.keys(xTotals).sort(); 
 
@@ -752,7 +780,6 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-      
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
@@ -760,10 +787,8 @@ export default function App() {
         remaining -= perc;
         sumVal += val;
       });
-      
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
-      
       return { label: chain, total, blocks };
     });
 
@@ -786,13 +811,9 @@ export default function App() {
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
-
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
-  // --------------------------------------------------------------------------------
-  // BARRAS APILADAS % POR DÍA + COLUMNA GENERAL
-  // --------------------------------------------------------------------------------
   const daySalesData = useMemo(() => {
     if (!data) return null;
     let filteredRows = data.cleanRows;
@@ -810,25 +831,19 @@ export default function App() {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
         invoiceTracker[cod] = true; 
-        
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         const val = r.VAL_CLEAN || 0;
-
         if (day === 'N/A') return;
-
         xTotals[chain] = (xTotals[chain] || 0) + val;
-        
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][day] = (xSegmentTotals[chain][day] || 0) + val;
-        
         globalSegmentTotals[day] = (globalSegmentTotals[day] || 0) + val;
       }
     });
 
     const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
-
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
@@ -850,13 +865,9 @@ export default function App() {
       });
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
-
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
-  // --------------------------------------------------------------------------------
-  // BARRAS APILADAS % POR FRANJA HORARIA + COLUMNA GENERAL
-  // --------------------------------------------------------------------------------
   const hourSalesData = useMemo(() => {
     if (!data) return null;
     let filteredRows = data.cleanRows;
@@ -873,31 +884,20 @@ export default function App() {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
         invoiceTracker[cod] = true;
-        
         const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         const val = r.VAL_CLEAN || 0;
-
         if (hourNum === -1) return;
-
         const hourLabel = getHourRange(hourNum).replace(' - ', '-');
-
         xTotals[chain] = (xTotals[chain] || 0) + val;
-        
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][hourLabel] = (xSegmentTotals[chain][hourLabel] || 0) + val;
-        
         if (!globalSegmentTotals[hourNum]) globalSegmentTotals[hourNum] = { label: hourLabel, val: 0 };
         globalSegmentTotals[hourNum].val += val;
       }
     });
 
-    const topHourNums = Object.entries(globalSegmentTotals)
-      .sort((a,b) => b[1].val - a[1].val)
-      .slice(0, 10)
-      .map(x => parseInt(x[0]))
-      .sort((a, b) => a - b);
-
+    const topHourNums = Object.entries(globalSegmentTotals).sort((a,b) => b[1].val - a[1].val).slice(0, 10).map(x => parseInt(x[0])).sort((a, b) => a - b);
     const topSegments = topHourNums.map(h => globalSegmentTotals[h].label);
     const xList = Object.keys(xTotals).sort(); 
 
@@ -906,7 +906,6 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-      
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
@@ -914,10 +913,8 @@ export default function App() {
         remaining -= perc;
         sumVal += val;
       });
-      
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
-      
       return { label: chain, total, blocks };
     });
 
@@ -940,13 +937,9 @@ export default function App() {
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
-
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
-  // --------------------------------------------------------------------------------
-  // CÁLCULO DINÁMICO CAPÍTULO 2 (Mix Canastas) + COLUMNA GENERAL
-  // --------------------------------------------------------------------------------
   const chart1Data = useMemo(() => {
     if (!data) return null;
     let filteredRows = data.cleanRows;
@@ -955,8 +948,6 @@ export default function App() {
     const xTotals = {};
     const xSegmentCounts = {};
     const globalSegmentCount = {};
-    
-    // Trackers para contar la cantidad literal de productos (ítems/filas)
     const chainSegmentItems = {};
     const globalSegmentItems = {};
 
@@ -970,7 +961,6 @@ export default function App() {
       xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
       globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
 
-      // Sumamos 1 ítem por cada fila encontrada
       if (!chainSegmentItems[xCol]) chainSegmentItems[xCol] = {};
       chainSegmentItems[xCol][seg] = (chainSegmentItems[xCol][seg] || 0) + 1;
       globalSegmentItems[seg] = (globalSegmentItems[seg] || 0) + 1;
@@ -988,11 +978,8 @@ export default function App() {
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
-        
-        // PROMEDIO LITERAL: Dinero total / Cantidad de productos
         const itemCount = chainSegmentItems[xLabel]?.[seg] || 1; 
         const avg = count / itemCount; 
-        
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
         sumVal += count;
@@ -1002,14 +989,11 @@ export default function App() {
       if (remaining > 0.1 && otrosVal > 0) {
         let otrosItemCount = 0;
         Object.keys(chainSegmentItems[xLabel] || {}).forEach(s => {
-            if (!topSegments.includes(s)) {
-                otrosItemCount += chainSegmentItems[xLabel][s];
-            }
+            if (!topSegments.includes(s)) otrosItemCount += chainSegmentItems[xLabel][s];
         });
         const avgOtros = otrosVal / (otrosItemCount || 1);
         blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: avgOtros });
       }
-      
       return { label: xLabel, total, blocks };
     });
 
@@ -1018,7 +1002,6 @@ export default function App() {
       const generalBlocks = [];
       let remainingGen = 100;
       let sumValGen = 0;
-      
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
@@ -1031,9 +1014,7 @@ export default function App() {
       if (remainingGen > 0.1 && otrosGen > 0) {
          let otrosGenItemCount = 0;
          Object.keys(globalSegmentItems).forEach(s => {
-             if (!topSegments.includes(s)) {
-                 otrosGenItemCount += globalSegmentItems[s];
-             }
+             if (!topSegments.includes(s)) otrosGenItemCount += globalSegmentItems[s];
          });
          generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / (otrosGenItemCount || 1) });
       }
@@ -1084,11 +1065,8 @@ export default function App() {
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
-        
-        // PROMEDIO: Unidades vendidas / Facturas que lo llevan
         const invCount = chainSegmentInvoices[xLabel]?.[seg]?.size || 1; 
         const avg = count / invCount; 
-        
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
         sumVal += count;
@@ -1098,14 +1076,11 @@ export default function App() {
       if (remaining > 0.1 && otrosVal > 0) {
         let otrosInvoicesSet = new Set();
         Object.keys(chainSegmentInvoices[xLabel] || {}).forEach(s => {
-            if (!topSegments.includes(s)) {
-                chainSegmentInvoices[xLabel][s].forEach(id => otrosInvoicesSet.add(id));
-            }
+            if (!topSegments.includes(s)) chainSegmentInvoices[xLabel][s].forEach(id => otrosInvoicesSet.add(id));
         });
         const otrosInvCount = otrosInvoicesSet.size || 1;
         blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal / otrosInvCount });
       }
-      
       return { label: xLabel, total, blocks };
     });
 
@@ -1114,11 +1089,9 @@ export default function App() {
       const generalBlocks = [];
       let remainingGen = 100;
       let sumValGen = 0;
-
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
-        
         const genInvCount = globalSegmentInvoices[seg]?.size || 1;
         generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / genInvCount });
         remainingGen -= perc;
@@ -1128,9 +1101,7 @@ export default function App() {
       if (remainingGen > 0.1 && otrosGen > 0) {
          let otrosGenInvoicesSet = new Set();
          Object.keys(globalSegmentInvoices).forEach(s => {
-             if (!topSegments.includes(s)) {
-                 globalSegmentInvoices[s].forEach(id => otrosGenInvoicesSet.add(id));
-             }
+             if (!topSegments.includes(s)) globalSegmentInvoices[s].forEach(id => otrosGenInvoicesSet.add(id));
          });
          const otrosGenInvCount = otrosGenInvoicesSet.size || 1;
          generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / otrosGenInvCount });
@@ -1169,7 +1140,6 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
@@ -1177,10 +1147,8 @@ export default function App() {
         remaining -= perc;
         sumVal += count;
       });
-
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
-      
       return { label: xLabel, total, blocks };
     });
 
@@ -1202,42 +1170,29 @@ export default function App() {
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
-
     return { topSegments, chartColumns };
   }, [data, filterChainForChart2]);
 
-  // --------------------------------------------------------------------------------
-  // DATOS PARA LAS DONAS (Top 5 Canastas divididas por Cadena)
-  // --------------------------------------------------------------------------------
   const topCategoryPiesData = useMemo(() => {
     if (!data) return null;
     let filteredRows = data.cleanRows;
     if (filterCityForPies !== "TODAS") filteredRows = filteredRows.filter(r => r.CIUDAD_CLEAN === filterCityForPies);
 
-    // 1. Identificar el Top 5 de Canastas por Valor (EDFP_VALOR_PROD)
     const catTotals = {};
     const excludedCats = ['FRUVER', 'CARNES', 'CARNES FESCRAS', 'CARNES FRESCAS'];
 
     filteredRows.forEach(r => {
       const cat = r.CAT_CLEAN || 'Sin Canasta';
-      const catUpper = cat.toUpperCase().trim();
-      
-      if (excludedCats.includes(catUpper)) return;
-
+      if (excludedCats.includes(cat.toUpperCase().trim())) return;
       const val = r.PROD_VAL_CLEAN || 0;
       catTotals[cat] = (catTotals[cat] || 0) + val;
     });
     
-    const top5Cats = Object.entries(catTotals)
-      .sort((a,b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(x => x[0]);
+    const top5Cats = Object.entries(catTotals).sort((a,b) => b[1] - a[1]).slice(0, 5).map(x => x[0]);
 
-    // 2. Para cada una de esas 5 canastas, calcular cuánto vendió cada Cadena
     const pies = top5Cats.map(catName => {
       const chainTotals = {};
       let totalVal = 0;
-      
       filteredRows.forEach(r => {
         if ((r.CAT_CLEAN || 'Sin Canasta') === catName) {
           const chain = r.CHAIN_CLEAN || 'Sin Cadena';
@@ -1247,27 +1202,18 @@ export default function App() {
         }
       });
 
-      // Ordenar las cadenas de mayor a menor participación dentro de esta canasta
       const chains = Object.keys(chainTotals).sort((a,b) => chainTotals[b] - chainTotals[a]);
-      
       const slices = chains.map((chain, idx) => {
         const globalChainIdx = data.chainList.indexOf(chain);
         const colorIdx = globalChainIdx >= 0 ? globalChainIdx : idx;
         return {
-          label: chain,
-          value: chainTotals[chain],
-          hexColor: HEX_COLORS[colorIdx % HEX_COLORS.length] || '#000',
-          colorClass: CHART_COLORS[colorIdx % CHART_COLORS.length]
+          label: chain, value: chainTotals[chain],
+          hexColor: HEX_COLORS[colorIdx % HEX_COLORS.length] || '#000', colorClass: CHART_COLORS[colorIdx % CHART_COLORS.length]
         };
       });
 
-      return {
-        category: catName,
-        total: totalVal,
-        slices
-      };
+      return { category: catName, total: totalVal, slices };
     });
-
     return pies;
   }, [data, filterCityForPies]);
 
@@ -1298,280 +1244,167 @@ export default function App() {
 
         {data && chapter1Stats && (
           <>
-            {/* CAPÍTULO 1 UNIFICADO: GENERALIDADES Y DESEMPEÑO */}
+            {/* CAPÍTULO 1 */}
             <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sm:p-8 transition-colors duration-300">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 border-l-4 border-indigo-500 pl-3 flex-shrink-0">
                   Capítulo 1: Generalidades y Desempeño
                 </h2>
                 <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg border border-indigo-100 dark:border-indigo-800/50 flex-wrap">
-                  
-                  {/* Filtro Cadena */}
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Store size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Cadena:</label>
-                    <select 
-                      value={selectedChain} 
-                      onChange={(e) => setSelectedChain(e.target.value)} 
-                      className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"
-                    >
-                      <option value="TODAS">TODAS</option>
-                      {data.chainList.map(chain => <option key={chain} value={chain}>{chain}</option>)}
-                    </select>
+                    <select value={selectedChain} onChange={(e) => setSelectedChain(e.target.value)} className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"><option value="TODAS">TODAS</option>{data.chainList.map(chain => <option key={chain} value={chain}>{chain}</option>)}</select>
                   </div>
-                  
                   <div className="hidden sm:block w-px h-6 bg-indigo-200 dark:bg-indigo-700"></div>
-                  
-                  {/* Filtro Ciudad */}
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Map size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Ciudad:</label>
-                    <select 
-                      value={selectedCity} 
-                      onChange={(e) => setSelectedCity(e.target.value)} 
-                      className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"
-                    >
-                      <option value="TODAS">TODAS</option>
-                      {data.cityList.map(city => <option key={city} value={city}>{city}</option>)}
-                    </select>
+                    <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"><option value="TODAS">TODAS</option>{data.cityList.map(city => <option key={city} value={city}>{city}</option>)}</select>
                   </div>
-
                   <div className="hidden sm:block w-px h-6 bg-indigo-200 dark:bg-indigo-700"></div>
-
-                  {/* Filtro Canasta */}
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Layers size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Canasta:</label>
-                    <select 
-                      value={selectedCategory} 
-                      onChange={(e) => setSelectedCategory(e.target.value)} 
-                      className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"
-                    >
-                      <option value="TODAS">TODAS</option>
-                      {data.catList.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    </select>
+                    <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"><option value="TODAS">TODAS</option>{data.catList.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>
                   </div>
-
-                  {/* Botón Borrar Filtros */}
                   {(selectedChain !== "TODAS" || selectedCity !== "TODAS" || selectedCategory !== "TODAS") && (
-                    <button 
-                      onClick={handleClearFilters}
-                      className="flex items-center justify-center p-1.5 rounded-md bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors sm:ml-2 shadow-sm"
-                      title="Borrar Filtros"
-                    >
-                      <RotateCcw size={18} />
-                    </button>
+                    <button onClick={handleClearFilters} className="flex items-center justify-center p-1.5 rounded-md bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors sm:ml-2 shadow-sm" title="Borrar Filtros"><RotateCcw size={18} /></button>
                   )}
-
                 </div>
               </div>
 
               {chapter1Stats.totalInvoices > 0 ? (
                 <>
-                  {/* 3 Tarjetas de KPIs */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                    <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-800 border-blue-100 dark:border-gray-700 shadow-none">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg"><Calendar size={24} /></div>
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día Pico de Tráfico</p>
-                          <h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topDay}</h3>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">{chapter1Stats.kpis.topDayCount} facturas</p>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 border-emerald-100 dark:border-gray-700 shadow-none">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg"><Clock size={24} /></div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora Más Concurrida</p>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topTxHourRange}</h3>
-                            {chapter1Stats.kpis.topTxJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">{chapter1Stats.kpis.topTxJornada}</span>}
-                          </div>
-                          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                            {chapter1Stats.kpis.topTxHourCount} facturas • <span className="text-gray-500 dark:text-gray-400">Tk Prom: {formatCurrency(chapter1Stats.kpis.topTxHourAvgVal)}</span>
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-gray-800 dark:to-gray-800 border-amber-100 dark:border-gray-700 shadow-none">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-lg"><TrendingUp size={24} /></div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora de Mayor Gasto (Ticket)</p>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topAvgHourRange}</h3>
-                            {chapter1Stats.kpis.topAvgJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">{chapter1Stats.kpis.topAvgJornada}</span>}
-                          </div>
-                          <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(chapter1Stats.kpis.topAvgHourVal)} prom.</p>
-                        </div>
-                      </div>
-                    </Card>
+                    <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-800 border-blue-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg"><Calendar size={24} /></div><div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día Pico de Tráfico</p><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topDay}</h3><p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">{chapter1Stats.kpis.topDayCount} facturas</p></div></div></Card>
+                    <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 border-emerald-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg"><Clock size={24} /></div><div className="flex-1"><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora Más Concurrida</p><div className="flex items-center gap-2"><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topTxHourRange}</h3>{chapter1Stats.kpis.topTxJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">{chapter1Stats.kpis.topTxJornada}</span>}</div><p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">{chapter1Stats.kpis.topTxHourCount} facturas • <span className="text-gray-500 dark:text-gray-400">Tk Prom: {formatCurrency(chapter1Stats.kpis.topTxHourAvgVal)}</span></p></div></div></Card>
+                    <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-gray-800 dark:to-gray-800 border-amber-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-lg"><TrendingUp size={24} /></div><div className="flex-1"><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora de Mayor Gasto (Ticket)</p><div className="flex items-center gap-2"><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topAvgHourRange}</h3>{chapter1Stats.kpis.topAvgJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">{chapter1Stats.kpis.topAvgJornada}</span>}</div><p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(chapter1Stats.kpis.topAvgHourVal)} prom.</p></div></div></Card>
                   </div>
 
                   <div className="space-y-8">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl border border-gray-100 dark:border-gray-600/50">
-                        <div className="p-4 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full"><ShoppingCart size={28} /></div>
-                        <div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ticket Promedio</p><h3 className="text-3xl font-bold dark:text-gray-100">{formatCurrency(chapter1Stats.avgTicket)}</h3></div>
-                      </div>
-                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl border border-gray-100 dark:border-gray-600/50">
-                        <div className="p-4 bg-fuchsia-100 dark:bg-fuchsia-900/50 text-fuchsia-600 dark:text-fuchsia-400 rounded-full"><ShoppingBag size={28} /></div>
-                        <div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ítems por Factura</p><h3 className="text-3xl font-bold dark:text-gray-100">{formatNumber(chapter1Stats.avgItems)} <span className="text-lg font-normal text-gray-400 dark:text-gray-500">ítems</span></h3></div>
-                      </div>
+                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl border border-gray-100 dark:border-gray-600/50"><div className="p-4 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full"><ShoppingCart size={28} /></div><div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ticket Promedio</p><h3 className="text-3xl font-bold dark:text-gray-100">{formatCurrency(chapter1Stats.avgTicket)}</h3></div></div>
+                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl border border-gray-100 dark:border-gray-600/50"><div className="p-4 bg-fuchsia-100 dark:bg-fuchsia-900/50 text-fuchsia-600 dark:text-fuchsia-400 rounded-full"><ShoppingBag size={28} /></div><div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ítems por Factura</p><h3 className="text-3xl font-bold dark:text-gray-100">{formatNumber(chapter1Stats.avgItems)} <span className="text-lg font-normal text-gray-400 dark:text-gray-500">ítems</span></h3></div></div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       {/* Top 20 Productos */}
                       <div className="col-span-1">
-                        <div className="flex items-center gap-2 mb-4"><Tag className="text-indigo-500 dark:text-indigo-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Productos</h3></div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2"><Tag className="text-indigo-500 dark:text-indigo-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Productos</h3></div>
+                          <button onClick={() => handleExportGenericCSV('Top_20_Productos', chapter1Stats.topProducts.map(p => ({ Producto: p.name, 'Cantidad Vendida': p.value, 'Porcentaje del Total': p.percentage.toFixed(2) + '%' })))} className="p-1.5 rounded bg-gray-100 hover:bg-indigo-100 text-gray-500 hover:text-indigo-600 dark:bg-gray-700 dark:hover:bg-indigo-900/50 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors" title="Exportar CSV"><Download size={16} /></button>
+                        </div>
                         <div>{chapter1Stats.topProducts.map((prod, idx) => <ProgressBar key={idx} label={prod.name} value={prod.percentage} max={chapter1Stats.topProducts[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-indigo-500 dark:bg-indigo-400"/>)}</div>
                       </div>
                       
                       {/* Top 5 Categorías */}
                       <div className="col-span-1 border-l border-r border-gray-100 dark:border-gray-700 px-0 lg:px-8">
-                        <div className="flex items-center gap-2 mb-4"><BarChart className="text-fuchsia-500 dark:text-fuchsia-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 5 Canastas</h3></div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2"><BarChart className="text-fuchsia-500 dark:text-fuchsia-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 5 Canastas</h3></div>
+                          <button onClick={() => handleExportGenericCSV('Top_5_Canastas', chapter1Stats.topCategories.map(c => ({ Canasta: c.name, Frecuencia: c.value, Porcentaje: c.percentage.toFixed(2) + '%', 'Top Productos': c.topProds.map(p=>p.name).join(' | ') })))} className="p-1.5 rounded bg-gray-100 hover:bg-fuchsia-100 text-gray-500 hover:text-fuchsia-600 dark:bg-gray-700 dark:hover:bg-fuchsia-900/50 dark:text-gray-400 dark:hover:text-fuchsia-400 transition-colors" title="Exportar CSV"><Download size={16} /></button>
+                        </div>
                         <div>
                           {chapter1Stats.topCategories.map((cat, idx) => (
                             <div key={idx} className="mb-5 last:mb-0">
                               <ProgressBar label={cat.name} value={cat.percentage} max={chapter1Stats.topCategories[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-fuchsia-500 dark:bg-fuchsia-400" className="mb-1" />
-                              <div className="flex flex-wrap gap-1">
-                                {cat.topProds.map((p, i) => (
-                                  <span key={i} className="text-[10px] bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300 px-1.5 py-0.5 rounded border border-fuchsia-100 dark:border-fuchsia-800/50 truncate max-w-full" title={p.name}>
-                                    {p.name} ({p.val})
-                                  </span>
-                                ))}
-                              </div>
+                              <div className="flex flex-wrap gap-1">{cat.topProds.map((p, i) => (<span key={i} className="text-[10px] bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300 px-1.5 py-0.5 rounded border border-fuchsia-100 dark:border-fuchsia-800/50 truncate max-w-full" title={p.name}>{p.name} ({p.val})</span>))}</div>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       {/* Top 20 Subcategorías */}
-                    <div className="col-span-1">
-                      <div className="flex items-center gap-2 mb-4"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Categorías</h3></div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta categoría:</p>
-                      <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
+                      <div className="col-span-1">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Categorías</h3></div>
+                          <button onClick={() => handleExportGenericCSV('Top_20_Categorias', chapter1Stats.topSubcategories.map(s => ({ Categoria: s.name, Unidades: s.count, Porcentaje: s.percentage.toFixed(2) + '%' })))} className="p-1.5 rounded bg-gray-100 hover:bg-teal-100 text-gray-500 hover:text-teal-600 dark:bg-gray-700 dark:hover:bg-teal-900/50 dark:text-gray-400 dark:hover:text-teal-400 transition-colors" title="Exportar CSV"><Download size={16} /></button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta categoría:</p>
+                        <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* VENTA CRUZADA TOP 20 (Mostrando 10 afinidades) */}
+                  {/* VENTA CRUZADA TOP 20 */}
                   <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-lg">
-                        <ShoppingCart size={20} />
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-lg"><ShoppingCart size={20} /></div>
+                        <div>
+                          <h3 className="text-lg font-bold dark:text-gray-100">Venta Cruzada: Afinidades del Top 20 Categorías</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Cuando un cliente lleva una de estas 20 categorías principales, ¿qué otras 10 suele incluir en su factura?</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold dark:text-gray-100">Venta Cruzada: Afinidades del Top 20 Categorías</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Cuando un cliente lleva una de estas 20 categorías principales, ¿qué otras 10 suele incluir en su factura?</p>
-                      </div>
+                      <button 
+                        onClick={() => {
+                          const rows = [];
+                          chapter1Stats.topSubcategories.forEach(sub => {
+                            if(sub.top10Affinities) {
+                              sub.top10Affinities.forEach(aff => { rows.push({ 'Categoría Base': sub.name, 'Categoría Cruzada': aff.name, 'Probabilidad Compra Conjunta (%)': aff.percentage.toFixed(2) + '%' }); });
+                            }
+                          });
+                          handleExportGenericCSV('Matriz_Venta_Cruzada', rows);
+                        }} 
+                        className="flex items-center justify-center p-2 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/60 transition-colors shadow-sm" title="Exportar Datos Completos de Afinidad">
+                        <Download size={20} />
+                      </button>
                     </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       {chapter1Stats.topSubcategories.map((subcat, idx) => (
                         <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex flex-col h-full hover:shadow-md transition-shadow">
-                          <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-600 truncate" title={subcat.name}>
-                            <span className="text-orange-500 dark:text-orange-400 mr-1">{idx + 1}.</span> {subcat.name}
-                          </h4>
+                          <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-600 truncate" title={subcat.name}><span className="text-orange-500 dark:text-orange-400 mr-1">{idx + 1}.</span> {subcat.name}</h4>
                           <div className="flex-1 flex flex-col justify-start space-y-2">
                             {subcat.top10Affinities && subcat.top10Affinities.length > 0 ? (
-                              subcat.top10Affinities.map((aff, i) => (
-                                <ProgressBar 
-                                  key={i} 
-                                  label={aff.name} 
-                                  value={aff.percentage} 
-                                  max={subcat.top10Affinities[0]?.percentage || 100} 
-                                  formatValue={(v) => `${v.toFixed(1)}%`} 
-                                  colorClass="bg-orange-400 dark:bg-orange-500" 
-                                  className="mb-0" 
-                                />
-                              ))
-                            ) : (
-                              <div className="flex-1 flex items-center justify-center py-4">
-                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin cruces frecuentes</p>
-                              </div>
-                            )}
+                              subcat.top10Affinities.map((aff, i) => <ProgressBar key={i} label={aff.name} value={aff.percentage} max={subcat.top10Affinities[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-orange-400 dark:bg-orange-500" className="mb-0" />)
+                            ) : (<div className="flex-1 flex items-center justify-center py-4"><p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin cruces frecuentes</p></div>)}
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* NUEVOS GRÁFICOS: PORCENTAJES DE VENTA (FACT_VALOR) Y TRÁFICO POR DÍA Y HORA */}
+                  {/* NUEVOS GRÁFICOS APILADOS */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
-                    <PercentageStackedBarChart 
-                      chartData={dayTrafficData}
-                      title="Distribución Tráfico por Día"
-                      description="% de Facturas (clientes) de cada Cadena distribuido según el Día."
-                      icon={ShoppingCart}
-                      isCurrency={false}
-                      valueSuffix=" facturas"
-                      hideYAxis={true}
-                    />
-                    <PercentageStackedBarChart 
-                      chartData={hourTrafficData}
-                      title="Distribución Tráfico por Hora"
-                      description="% de Facturas (clientes) de cada Cadena distribuido en su Franja Horaria."
-                      icon={ShoppingCart}
-                      isCurrency={false}
-                      valueSuffix=" facturas"
-                      hideYAxis={true}
-                    />
-                    <PercentageStackedBarChart 
-                      chartData={daySalesData}
-                      title="Distribución Ventas por Día"
-                      description="% del Dinero total (Ventas) de cada Cadena distribuido según el Día."
-                      icon={Calendar}
-                      isCurrency={true}
-                      hideYAxis={true}
-                    />
-                    <PercentageStackedBarChart 
-                      chartData={hourSalesData}
-                      title="Distribución Ventas por Hora"
-                      description="% del Dinero total (Ventas) de cada Cadena distribuido en su Franja Horaria."
-                      icon={Clock}
-                      isCurrency={true}
-                      hideYAxis={true}
-                    />
+                    <PercentageStackedBarChart chartData={dayTrafficData} title="Distribución Tráfico por Día" description="% de Facturas (clientes) de cada Cadena distribuido según el Día." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
+                    <PercentageStackedBarChart chartData={hourTrafficData} title="Distribución Tráfico por Hora" description="% de Facturas (clientes) de cada Cadena distribuido en su Franja Horaria." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
+                    <PercentageStackedBarChart chartData={daySalesData} title="Distribución Ventas por Día" description="% del Dinero total (Ventas) de cada Cadena distribuido según el Día." icon={Calendar} isCurrency={true} hideYAxis={true} />
+                    <PercentageStackedBarChart chartData={hourSalesData} title="Distribución Ventas por Hora" description="% del Dinero total (Ventas) de cada Cadena distribuido en su Franja Horaria." icon={Clock} isCurrency={true} hideYAxis={true} />
                   </div>
 
                 </div>
               </>
             ) : (
-              <div className="py-12 flex flex-col items-center justify-center text-center">
-                  <Info size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
-                  <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">Sin datos registrados</h3>
-                  <p className="text-gray-500 dark:text-gray-400">No encontramos facturas para la combinación de Cadena y Ciudad seleccionada.</p>
-                </div>
-              )}
+              <div className="py-12 flex flex-col items-center justify-center text-center"><Info size={48} className="text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">Sin datos registrados</h3><p className="text-gray-500 dark:text-gray-400">No encontramos facturas para la combinación de Cadena y Ciudad seleccionada.</p></div>
+            )}
             </section>
 
-            {/* CAPÍTULO 2: COMPARATIVO */}
+            {/* CAPÍTULO 2 */}
             <section className="space-y-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-indigo-500 pl-3">Capítulo 2: Análisis Comparativo</h2>
-              
               <div className="grid grid-cols-1 gap-8">
                 
-                {/* NUEVO: TOP 5 CANASTAS POR CIUDAD (PIE CHARTS) */}
+                {/* DONAS TOP 5 CANASTAS */}
                 <Card className="col-span-1 border-t-4 border-t-indigo-400 dark:border-t-indigo-500">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
                     <div>
                       <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><PieChart className="text-indigo-500 dark:text-indigo-400"/> Participación en Top 5 Canastas</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Distribución de las ventas ($) entre Cadenas para las 5 canastas principales.</p>
                     </div>
-                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg border border-gray-200 dark:border-gray-600 max-w-full sm:max-w-xs">
-                      <Filter size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-300 flex-shrink-0">Filtrar Ciudad:</label>
-                      <select 
-                        value={filterCityForPies} 
-                        onChange={(e) => setFilterCityForPies(e.target.value)} 
-                        className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer w-full truncate shadow-sm"
-                      >
-                        <option value="TODAS">TODAS LAS CIUDADES</option>
-                        {data.cityList.map(city => <option key={city} value={city}>{city}</option>)}
-                      </select>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <Filter size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                        <label className="text-sm font-medium text-gray-500 dark:text-gray-300 flex-shrink-0">Filtrar Ciudad:</label>
+                        <select value={filterCityForPies} onChange={(e) => setFilterCityForPies(e.target.value)} className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer w-full truncate shadow-sm"><option value="TODAS">TODAS LAS CIUDADES</option>{data.cityList.map(city => <option key={city} value={city}>{city}</option>)}</select>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const rows = [];
+                          topCategoryPiesData.forEach(pie => pie.slices.forEach(s => rows.push({ Canasta: pie.category, 'Total Canasta ($)': pie.total, Cadena: s.label, 'Ventas de la Cadena ($)': s.value, 'Participacion (%)': pie.total > 0 ? ((s.value/pie.total)*100).toFixed(2) + '%' : '0%' })));
+                          handleExportGenericCSV('Participacion_Top5_Canastas', rows);
+                        }} 
+                        className="flex items-center justify-center p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/60 transition-colors shadow-sm" title="Exportar CSV de Participación"><Download size={20} />
+                      </button>
                     </div>
                   </div>
                   
@@ -1582,14 +1415,10 @@ export default function App() {
                           <h4 className="text-xs sm:text-sm font-bold text-center mb-4 text-gray-700 dark:text-gray-200 line-clamp-2 h-10 w-full">{pie.category}</h4>
                           <SVGDonut slices={pie.slices} />
                           <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-4 font-bold tracking-wide">{formatCurrency(pie.total)}</p>
-                          
                           <div className="mt-4 w-full space-y-2">
                             {pie.slices.map(s => (
                               <div key={s.label} className="flex items-center justify-between text-[10px] sm:text-xs">
-                                <div className="flex items-center gap-2 truncate pr-2">
-                                  <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0`} style={{backgroundColor: s.hexColor}}></div>
-                                  <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
-                                </div>
+                                <div className="flex items-center gap-2 truncate pr-2"><div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0`} style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div>
                                 <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{pie.total > 0 ? ((s.value / pie.total) * 100).toFixed(1) : 0}%</span>
                               </div>
                             ))}
@@ -1597,218 +1426,126 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-center text-gray-500 py-8">No hay datos para mostrar en esta selección.</p>
-                  )}
+                  ) : (<p className="text-center text-gray-500 py-8">No hay datos para mostrar en esta selección.</p>)}
                 </Card>
 
-                {/* GRÁFICA 1 */}
-                <PercentageStackedBarChart 
-                  chartData={chart1Data} 
-                  title="Mix de Canastas por Cadena (Precio Promedio $)" 
-                  description="Valor promedio de un (1) producto de esta canasta en cada cadena. La barra representa la proporción del gasto."
-                  icon={BarChart} 
-                  filterLabel="Filtrar por Ciudad"
-                  filterValue={filterCityForChart1} 
-                  setFilterValue={setFilterCityForChart1} 
-                  filterOptions={data.cityList} 
-                  defaultFilterText="TODAS LAS CIUDADES"
-                  isCurrency={true}
-                  showAverageInsteadOfPercentage={true}
-                />
-
-                {/* GRÁFICA 1 (UNIDADES) */}
-                <PercentageStackedBarChart 
-                  chartData={chart1DataUnits} 
-                  title="Mix de Canastas por Cadena (Promedio Unidades)" 
-                  description="Promedio de unidades (ítems) aportados por canasta por cada factura que la incluye."
-                  icon={Layers} 
-                  filterLabel="Filtrar por Ciudad"
-                  filterValue={filterCityForChart1} 
-                  setFilterValue={setFilterCityForChart1} 
-                  filterOptions={data.cityList} 
-                  defaultFilterText="TODAS LAS CIUDADES"
-                  isCurrency={false}
-                  valueSuffix=" unid."
-                  showAverageInsteadOfPercentage={true}
-                />
-
-                {/* GRÁFICA 2 */}
-                <PercentageStackedBarChart 
-                  chartData={chart2Data} 
-                  title="Distribución de Ventas por Ciudad" 
-                  description="Mix porcentual de ingresos (dinero) por canasta observando una Cadena específica a través de las ciudades."
-                  icon={Map} 
-                  filterLabel="Filtrar por Cadena"
-                  filterValue={filterChainForChart2} 
-                  setFilterValue={setFilterChainForChart2} 
-                  filterOptions={data.chainList} 
-                  defaultFilterText="TODAS LAS CADENAS"
-                  isCurrency={true}
-                />
+                <PercentageStackedBarChart chartData={chart1Data} title="Mix de Canastas por Cadena (Precio Promedio $)" description="Valor promedio de un (1) producto de esta canasta en cada cadena. La barra representa la proporción del gasto." icon={BarChart} filterLabel="Filtrar por Ciudad" filterValue={filterCityForChart1} setFilterValue={setFilterCityForChart1} filterOptions={data.cityList} defaultFilterText="TODAS LAS CIUDADES" isCurrency={true} showAverageInsteadOfPercentage={true} />
+                <PercentageStackedBarChart chartData={chart1DataUnits} title="Mix de Canastas por Cadena (Promedio Unidades)" description="Promedio de unidades (ítems) aportados por canasta por cada factura que la incluye." icon={Layers} filterLabel="Filtrar por Ciudad" filterValue={filterCityForChart1} setFilterValue={setFilterCityForChart1} filterOptions={data.cityList} defaultFilterText="TODAS LAS CIUDADES" isCurrency={false} valueSuffix=" unid." showAverageInsteadOfPercentage={true} />
+                <PercentageStackedBarChart chartData={chart2Data} title="Distribución de Ventas por Ciudad" description="Mix porcentual de ingresos (dinero) por canasta observando una Cadena específica a través de las ciudades." icon={Map} filterLabel="Filtrar por Cadena" filterValue={filterChainForChart2} setFilterValue={setFilterChainForChart2} filterOptions={data.chainList} defaultFilterText="TODAS LAS CADENAS" isCurrency={true} />
               </div>
             </section>
 
-            {/* CAPÍTULO 3: SCOPE HARINAS Y PASTAS */}
+            {/* CAPÍTULO 3 */}
             <section className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-amber-500 pl-3">
-                Capítulo 3: Scope Harinas y Pastas (Global)
-              </h2>
-
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-amber-500 pl-3">Capítulo 3: Scope Harinas y Pastas (Global)</h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
+                {/* SCOPE HARINAS */}
                 <Card className="border-t-4 border-t-amber-400 dark:border-t-amber-500">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full"><ChefHat size={28}/></div>
-                    <div>
-                      <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Scope: Harinas</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className="font-bold text-amber-600 dark:text-amber-400">{data.deepDive.harinas.penetration.toFixed(1)}%</span> de toda la muestra.</p>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full"><ChefHat size={28}/></div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Scope: Harinas</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className="font-bold text-amber-600 dark:text-amber-400">{data.deepDive.harinas.penetration.toFixed(1)}%</span> de toda la muestra.</p>
+                      </div>
                     </div>
+                    <button 
+                      onClick={() => {
+                        const rows = [
+                          { Indicador: 'Penetración General (%)', Detalle: '', Valor: data.deepDive.harinas.penetration.toFixed(2) + '%' },
+                          { Indicador: 'Ticket Promedio ($)', Detalle: '', Valor: data.deepDive.harinas.avgTicket.toFixed(0) },
+                          { Indicador: 'Promedio Items Harina', Detalle: '', Valor: data.deepDive.harinas.avgItems.toFixed(2) },
+                          ...data.deepDive.harinas.mix.map(m => ({ Indicador: 'Mix (% Unidades)', Detalle: m.name, Valor: m.value.toFixed(2) + '%' })),
+                          ...data.deepDive.harinas.topTrigoAff.map(a => ({ Indicador: 'Afinidad Trigo', Detalle: a.name, Valor: a.value.toFixed(2) + '%' })),
+                          ...data.deepDive.harinas.topMaizAff.map(a => ({ Indicador: 'Afinidad Maiz', Detalle: a.name, Valor: a.value.toFixed(2) + '%' })),
+                          ...data.deepDive.harinas.chainSlices.map(s => ({ Indicador: 'Unidades Vendidas por Cadena', Detalle: s.label, Valor: s.value })),
+                          ...data.deepDive.harinas.citySlices.map(s => ({ Indicador: 'Unidades Vendidas por Ciudad', Detalle: s.label, Valor: s.value }))
+                        ];
+                        handleExportGenericCSV('Scope_Harinas_Completo', rows);
+                      }} 
+                      className="flex items-center justify-center p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/60 transition-colors shadow-sm" title="Descargar Resumen de Harinas">
+                      <Download size={20} />
+                    </button>
                   </div>
 
                   <div className="flex gap-2 sm:gap-4 mb-8 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex-wrap">
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p>
-                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.harinas.avgTicket)}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Paquetes de harina promedio">Ítems Harina</p>
-                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.harinas.avgItems)}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Total de ítems en toda la factura (Canasta)">Total Canasta</p>
-                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.harinas.basketSize)}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p>
-                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.harinas.peakHour}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p>
-                      <p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400">{data.deepDive.harinas.peakDay}</p>
-                    </div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.harinas.avgTicket)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Ítems Harina</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.harinas.avgItems)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Total Canasta</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.harinas.basketSize)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.harinas.peakHour}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p><p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400">{data.deepDive.harinas.peakDay}</p></div>
                   </div>
 
                   <div className="mb-8">
                     <h4 className="text-md font-bold mb-4 flex items-center gap-2 dark:text-gray-200"><PieChart size={18} className="text-amber-500 dark:text-amber-400"/> Mix de Harinas (% unidades)</h4>
                     {data.deepDive.harinas.mix.map((item, idx) => {
-                      const colors = {
-                        'Harina de Trigo': 'bg-amber-500 dark:bg-amber-500',
-                        'Harina de Maíz': 'bg-yellow-400 dark:bg-yellow-500',
-                        'Otras Harinas': 'bg-orange-400 dark:bg-orange-500'
-                      };
-                      return (
-                        <ProgressBar 
-                          key={idx} 
-                          label={item.name} 
-                          value={item.value} 
-                          max={Math.max(...data.deepDive.harinas.mix.map(i=>i.value))} 
-                          formatValue={(v)=>`${v.toFixed(1)}%`} 
-                          colorClass={colors[item.name] || "bg-amber-500"}
-                        />
-                      );
+                      const colors = { 'Harina de Trigo': 'bg-amber-500 dark:bg-amber-500', 'Harina de Maíz': 'bg-yellow-400 dark:bg-yellow-500', 'Otras Harinas': 'bg-orange-400 dark:bg-orange-500' };
+                      return <ProgressBar key={idx} label={item.name} value={item.value} max={Math.max(...data.deepDive.harinas.mix.map(i=>i.value))} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass={colors[item.name] || "bg-amber-500"} />;
                     })}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Qué se compra con Trigo:</h4>
-                      {data.deepDive.harinas.topTrigoAff.length > 0 ? data.deepDive.harinas.topTrigoAff.map((p, idx) => (
-                        <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.harinas.topTrigoAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-amber-500 dark:bg-amber-500"/>
-                      )) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin cruces</p>}
+                      {data.deepDive.harinas.topTrigoAff.length > 0 ? data.deepDive.harinas.topTrigoAff.map((p, idx) => <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.harinas.topTrigoAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-amber-500 dark:bg-amber-500"/>) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin cruces</p>}
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Qué se compra con Maíz:</h4>
-                      {data.deepDive.harinas.topMaizAff.length > 0 ? data.deepDive.harinas.topMaizAff.map((p, idx) => (
-                        <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.harinas.topMaizAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-yellow-400 dark:bg-yellow-500"/>
-                      )) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin cruces</p>}
+                      {data.deepDive.harinas.topMaizAff.length > 0 ? data.deepDive.harinas.topMaizAff.map((p, idx) => <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.harinas.topMaizAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-yellow-400 dark:bg-yellow-500"/>) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin cruces</p>}
                     </div>
                   </div>
 
-                  {/* NUEVAS TORTAS: Distribución de Harinas por Cadena y Ciudad */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-8 border-t border-gray-100 dark:border-gray-700 pt-6">
                     <div className="flex flex-col items-center">
                       <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">¿Dónde se compran? (Por Cadena)</h4>
                       <SVGDonut slices={data.deepDive.harinas.chainSlices} size="w-28 h-28" />
-                      <div className="mt-4 w-full max-w-xs space-y-2">
-                        {data.deepDive.harinas.chainSlices.map(s => (
-                          <div key={s.label} className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 truncate pr-2">
-                              <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div>
-                              <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
-                            </div>
-                            <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">
-                              {((s.value / data.deepDive.harinas.chainSlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      <div className="mt-4 w-full max-w-xs space-y-2">{data.deepDive.harinas.chainSlices.map(s => <div key={s.label} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2 truncate pr-2"><div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div><span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{((s.value / data.deepDive.harinas.chainSlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%</span></div>)}</div>
                     </div>
                     <div className="flex flex-col items-center">
                       <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">¿Dónde se compran? (Por Ciudad)</h4>
                       <SVGDonut slices={data.deepDive.harinas.citySlices} size="w-28 h-28" />
-                      <div className="mt-4 w-full max-w-xs space-y-2">
-                        {data.deepDive.harinas.citySlices.map(s => (
-                          <div key={s.label} className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 truncate pr-2">
-                              <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div>
-                              <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
-                            </div>
-                            <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">
-                              {((s.value / data.deepDive.harinas.citySlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      <div className="mt-4 w-full max-w-xs space-y-2">{data.deepDive.harinas.citySlices.map(s => <div key={s.label} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2 truncate pr-2"><div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div><span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{((s.value / data.deepDive.harinas.citySlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%</span></div>)}</div>
                     </div>
                   </div>
                 </Card>
 
+                {/* SCOPE PASTAS */}
                 <Card className="border-t-4 border-t-red-400 dark:border-t-red-500">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-full"><Utensils size={28}/></div>
-                    <div>
-                      <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Scope: Pastas</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className="font-bold text-red-600 dark:text-red-400">{data.deepDive.pastas.penetration.toFixed(1)}%</span> de toda la muestra.</p>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-full"><Utensils size={28}/></div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Scope: Pastas</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className="font-bold text-red-600 dark:text-red-400">{data.deepDive.pastas.penetration.toFixed(1)}%</span> de toda la muestra.</p>
+                      </div>
                     </div>
+                    <button 
+                      onClick={() => {
+                        const rows = [
+                          { Indicador: 'Penetración General (%)', Detalle: '', Valor: data.deepDive.pastas.penetration.toFixed(2) + '%' },
+                          { Indicador: 'Ticket Promedio ($)', Detalle: '', Valor: data.deepDive.pastas.avgTicket.toFixed(0) },
+                          { Indicador: 'Promedio Items Pasta', Detalle: '', Valor: data.deepDive.pastas.avgItems.toFixed(2) },
+                          ...data.deepDive.pastas.topAff.map(a => ({ Indicador: 'Afinidad de Compra', Detalle: a.name, Valor: a.value.toFixed(2) + '%' }))
+                        ];
+                        handleExportGenericCSV('Scope_Pastas_Completo', rows);
+                      }} 
+                      className="flex items-center justify-center p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors shadow-sm" title="Descargar Resumen de Pastas">
+                      <Download size={20} />
+                    </button>
                   </div>
 
                   <div className="flex gap-2 sm:gap-4 mb-8 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex-wrap">
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p>
-                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.pastas.avgTicket)}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Paquetes de pasta promedio">Ítems Pasta</p>
-                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.avgItems)}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Total de ítems en toda la factura (Canasta)">Total Canasta</p>
-                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.basketSize)}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p>
-                      <p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.pastas.peakHour}</p>
-                    </div>
-                    <div className="w-px bg-gray-200 dark:bg-gray-600"></div>
-                    <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p>
-                      <p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400">{data.deepDive.pastas.peakDay}</p>
-                    </div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(data.deepDive.pastas.avgTicket)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Ítems Pasta</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.avgItems)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Total Canasta</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(data.deepDive.pastas.basketSize)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{data.deepDive.pastas.peakHour}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600"></div>
+                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p><p className="text-base sm:text-lg font-bold text-red-600 dark:text-red-400">{data.deepDive.pastas.peakDay}</p></div>
                   </div>
 
                   <div>
                     <h4 className="text-md font-bold mb-4 flex items-center gap-2 dark:text-gray-200"><Layers size={18} className="text-red-500 dark:text-red-400"/> Qué se compra junto con Pastas:</h4>
-                    {data.deepDive.pastas.topAff.length > 0 ? data.deepDive.pastas.topAff.map((p, idx) => (
-                      <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.pastas.topAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-red-500 dark:bg-red-500"/>
-                    )) : <p className="text-sm text-gray-400 dark:text-gray-500">No hay suficientes datos de cruce.</p>}
+                    {data.deepDive.pastas.topAff.length > 0 ? data.deepDive.pastas.topAff.map((p, idx) => <ProgressBar key={idx} label={p.name} value={p.value} max={data.deepDive.pastas.topAff[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-red-500 dark:bg-red-500"/>) : <p className="text-sm text-gray-400 dark:text-gray-500">No hay suficientes datos de cruce.</p>}
                   </div>
                 </Card>
 

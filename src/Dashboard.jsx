@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+  import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw, Download, Droplet } from 'lucide-react';
 
 const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_NOMBRE_PROD;CATEGORIA;SUBCATEGORIA;EDFP_VALOR_PROD;CIUDAD
@@ -235,11 +235,13 @@ const analyzeData = (data) => {
 
 const matchScope = (row, scope) => {
   const s = (row.SUBCAT_CLEAN || '').toUpperCase();
-  const c = (row.CAT_CLEAN || '').toUpperCase();
-  const p = (row.PROD_CLEAN || '').toUpperCase();
-  if (scope === 'HARINAS') return s.includes('HARINA') || c.includes('HARINA') || p.includes('HARINA') || p.includes('AREPAR') || p.includes('PROMASA');
-  if (scope === 'PASTA') return s.includes('PASTA') || c.includes('PASTA') || p.includes('PASTA') || p.includes('FIDEO') || p.includes('ESPAGUETI') || p.includes('MACARRON');
-  if (scope === 'ACEITES Y GRASAS') return s.includes('ACEITE') || c.includes('ACEITE') || p.includes('ACEITE') || s.includes('GRASA') || c.includes('GRASA') || p.includes('MARGARINA') || p.includes('MANTEQUILLA');
+  
+  // Ahora la búsqueda es estricta solo a la columna SUBCATEGORIA
+  if (scope === 'HARINAS') return s.includes('HARINA');
+  if (scope === 'PASTA') return s.includes('PASTA');
+  if (scope === 'ACEITES') return s.includes('ACEITE');
+  if (scope === 'ESPARCIBLES') return s.includes('ESPARCIBLE');
+  
   return false;
 };
 
@@ -1265,11 +1267,14 @@ export default function App() {
   const formatCurrency = (val) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
   const formatNumber = (val) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(val);
 
-  const ScopeIcon = selectedScope === 'HARINAS' ? ChefHat : selectedScope === 'PASTA' ? Utensils : Droplet;
+  const ScopeIcon = selectedScope === 'HARINAS' ? ChefHat : selectedScope === 'PASTA' ? Utensils : selectedScope === 'ACEITES' ? Droplet : Layers;
+  
   const getTheme = () => {
     if(selectedScope === 'HARINAS') return { border: 'border-t-amber-400 dark:border-t-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-amber-600 dark:text-amber-400', bar1: 'bg-amber-500', bar2: 'bg-yellow-400' };
     if(selectedScope === 'PASTA') return { border: 'border-t-red-400 dark:border-t-red-500', bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-600 dark:text-red-400', bar1: 'bg-red-500', bar2: 'bg-rose-400' };
-    return { border: 'border-t-emerald-400 dark:border-t-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-600 dark:text-emerald-400', bar1: 'bg-emerald-500', bar2: 'bg-teal-400' };
+    if(selectedScope === 'ACEITES') return { border: 'border-t-emerald-400 dark:border-t-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-600 dark:text-emerald-400', bar1: 'bg-emerald-500', bar2: 'bg-teal-400' };
+    // Tema para ESPARCIBLES
+    return { border: 'border-t-yellow-400 dark:border-t-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900/40', text: 'text-yellow-600 dark:text-yellow-400', bar1: 'bg-yellow-500', bar2: 'bg-orange-400' };
   };
   const theme = getTheme();
 
@@ -1502,7 +1507,8 @@ export default function App() {
                   >
                     <option value="HARINAS">HARINAS</option>
                     <option value="PASTA">PASTA</option>
-                    <option value="ACEITES Y GRASAS">ACEITES Y GRASAS</option>
+                    <option value="ACEITES">ACEITES</option>
+                    <option value="ESPARCIBLES">ESPARCIBLES</option>
                   </select>
                 </div>
               </div>

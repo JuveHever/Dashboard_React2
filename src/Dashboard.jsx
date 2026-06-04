@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw, Download, Droplet } from 'lucide-react';
+import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw, Download, ChevronDown, CheckCircle2 } from 'lucide-react';
 
 const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_NOMBRE_PROD;CATEGORIA;SUBCATEGORIA;EDFP_VALOR_PROD;CIUDAD
 1;2026-02-21;Sábado;15:27:54;$ 19.000;SUPERTIENDAS CAÑAVERAL S.A.S.;PAN GUADALUPE*450g;ALIMENTOS;PANADERIA;$ 19.000;CALI
@@ -14,7 +14,7 @@ const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_
 7;2026-02-25;Miércoles;15:00:00;$ 15000;D1 SAS;DETERGENTE;ASEO;CUIDADO ROPA;$ 5000;BOGOTA
 8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;HARINA DE TRIGO HAZ DE OROS;ALIMENTOS;HARINAS;$ 5000;BOGOTA
 8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;HUEVOS AA;ALIMENTOS;HUEVOS;$ 10000;BOGOTA
-8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;MANTEQUILLA;LACTEOS;ESPARCIBLES;$ 10000;BOGOTA
+8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;MANTEQUILLA;LACTEOS;MARGARINAS ESPARCIBLES;$ 10000;BOGOTA
 9;2026-02-25;Miércoles;11:00:00;$ 15000;MAKRO;HARINA DE MAIZ PAN;ALIMENTOS;HARINAS;$ 4000;MEDELLIN
 9;2026-02-25;Miércoles;11:00:00;$ 15000;MAKRO;QUESO CAMPESINO;LACTEOS;QUESOS;$ 11000;MEDELLIN
 10;2026-02-25;Miércoles;12:00:00;$ 12000;SUPERTIENDAS CAÑAVERAL S.A.S.;FIDEOS DORIA;ALIMENTOS;PASTAS;$ 3000;CALI
@@ -23,7 +23,9 @@ const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_
 11;2026-02-26;Jueves;13:00:00;$ 12000;D1 SAS;ESPAGUETI LA MUÑECA;ALIMENTOS;PASTAS;$ 4000;BOGOTA
 11;2026-02-26;Jueves;13:00:00;$ 12000;D1 SAS;CARNE MOLIDA;CARNES;RES;$ 8000;BOGOTA
 12;2026-02-26;Jueves;14:00:00;$ 9000;D1 SAS;AREPARINA;ALIMENTOS;HARINAS;$ 4000;BOGOTA
-12;2026-02-26;Jueves;14:00:00;$ 9000;D1 SAS;QUESO CAMPESINO;LACTEOS;QUESOS;$ 5000;BOGOTA`;
+12;2026-02-26;Jueves;14:00:00;$ 9000;D1 SAS;QUESO CAMPESINO;LACTEOS;QUESOS;$ 5000;BOGOTA
+13;2026-02-27;Viernes;16:30:00;$ 25000;EXITO;ACEITE GOURMET;VIVERES;ACEITES;$ 25000;BOGOTA
+14;2026-02-27;Viernes;17:00:00;$ 8000;EXITO;MARGARINA LA FINA;LACTEOS;MARGARINAS ESPARCIBLES;$ 8000;BOGOTA`;
 
 const CHART_COLORS = [
   'bg-indigo-500', 'bg-fuchsia-500', 'bg-teal-500', 'bg-amber-500', 
@@ -36,33 +38,6 @@ const HEX_COLORS = [
   '#f43f5e', '#3b82f6', '#10b981', '#f97316', 
   '#06b6d4', '#a855f7', '#ec4899', '#84cc16'
 ];
-
-const handleExportGenericCSV = (filename, dataRows) => {
-  if (!dataRows || dataRows.length === 0) return;
-  const headers = Object.keys(dataRows[0]);
-  let csvContent = headers.join(';') + '\n';
-  
-  dataRows.forEach(row => {
-    const rowStr = headers.map(h => {
-      let val = row[h];
-      if (val === null || val === undefined) val = '';
-      val = String(val).replace(/"/g, '""');
-      if (val.includes(';')) val = `"${val}"`;
-      return val;
-    }).join(';');
-    csvContent += rowStr + '\n';
-  });
-
-  const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  const safeTitle = filename.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-  link.setAttribute('download', `${safeTitle}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
 
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 ${className}`}>
@@ -118,6 +93,19 @@ const SVGDonut = ({ slices, size = "w-28 h-28 sm:w-32 sm:h-32" }) => {
   );
 };
 
+// Generador de Exportaciones CSV universal
+const exportToCSV = (filename, rows) => {
+  let csvContent = rows.map(e => e.join(";")).join("\n");
+  const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `${filename.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 const cleanNumber = (val) => {
   if (!val) return 0;
   let clean = String(val).replace(/[$\s.]/g, '').replace(/,/g, '.');
@@ -160,22 +148,6 @@ const getJornada = (hour) => {
   return "Madrugada"; 
 };
 
-const getPeakHourKey = (hObj) => { const s = Object.entries(hObj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? parseInt(s[0][0]) : -1; };
-const getPeakDayKey = (dObj) => { const s = Object.entries(dObj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? s[0][0] : "N/A"; };
-const getAffinityPercentageList = (obj, totalBaseInvoices) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,5).map(x => ({name: x[0], value: totalBaseInvoices > 0 ? (x[1] / totalBaseInvoices) * 100 : 0}));
-const getPieSlices = (countObj, colorRefList) => {
-  const total = Object.values(countObj).reduce((a,b)=>a+b, 0);
-  return Object.entries(countObj).sort((a,b)=>b[1]-a[1]).map(([name, val], idx) => {
-    const refIdx = colorRefList ? colorRefList.indexOf(name) : -1;
-    const finalIdx = refIdx >= 0 ? refIdx : idx;
-    return {
-      label: name,
-      value: val,
-      hexColor: HEX_COLORS[finalIdx % HEX_COLORS.length] || HEX_COLORS[0]
-    };
-  });
-};
-
 const parseCSV = (text) => {
   const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
   if (lines.length === 0) return [];
@@ -192,6 +164,19 @@ const parseCSV = (text) => {
     data.push(obj);
   }
   return data;
+};
+
+// Modificación para la búsqueda estricta del Scope solo por Subcategoría
+const matchScope = (subcat, scope) => {
+  const s = String(subcat || '').toUpperCase().trim();
+  
+  if (scope === 'HARINAS') return s.includes('HARINA');
+  if (scope === 'PASTA') return s.includes('PASTA');
+  if (scope === 'ACEITES') return s.includes('ACEITE');
+  // Búsqueda estricta solicitada:
+  if (scope === 'ESPARCIBLES') return s === 'MARGARINAS ESPARCIBLES' || s.includes('MARGARINAS ESPARCIBLES'); 
+  
+  return false;
 };
 
 const analyzeData = (data) => {
@@ -233,46 +218,31 @@ const analyzeData = (data) => {
   };
 };
 
-const matchScope = (row, scope) => {
-  const s = (row.SUBCAT_CLEAN || '').toUpperCase();
-  
-  // Ahora la búsqueda es estricta solo a la columna SUBCATEGORIA
-  if (scope === 'HARINAS') return s.includes('HARINA');
-  if (scope === 'PASTA') return s.includes('PASTA');
-  if (scope === 'ACEITES') return s.includes('ACEITE');
-  if (scope === 'ESPARCIBLES') return s.includes('MARGARINAS ESPARCIBLES');
-  
-  return false;
-};
-
 const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, filterLabel, filterValue, setFilterValue, filterOptions, defaultFilterText, valueSuffix = "unid.", isCurrency = false, hideYAxis = false, showAverageInsteadOfPercentage = false }) => {
   
   const handleDownloadCSV = () => {
     if (!chartData || !chartData.chartColumns) return;
     const headers = ['Segmento Principal', 'Total General'];
     const allInnerSegments = new Set();
-    chartData.chartColumns.forEach(col => { col.blocks.forEach(b => allInnerSegments.add(b.name)); });
+    
+    chartData.chartColumns.forEach(col => {
+      col.blocks.forEach(b => allInnerSegments.add(b.name));
+    });
+    
     const segmentArray = Array.from(allInnerSegments);
     headers.push(...segmentArray);
 
-    let csvContent = headers.join(';') + '\n';
+    const rows = [headers];
+
     chartData.chartColumns.forEach(col => {
       const row = [col.label, col.total];
       const blockMap = {};
       col.blocks.forEach(b => { blockMap[b.name] = b.val; });
       segmentArray.forEach(seg => { row.push(blockMap[seg] !== undefined ? blockMap[seg] : 0); });
-      csvContent += row.join(';') + '\n';
+      rows.push(row);
     });
 
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    link.setAttribute('download', `${safeTitle}_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportToCSV(title, rows);
   };
 
   return (
@@ -388,18 +358,18 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
 export default function App() {
   const [data, setData] = useState(null);
   
-  // Filtros del Capítulo 1
   const [selectedChain, setSelectedChain] = useState("TODAS");
   const [selectedCity, setSelectedCity] = useState("TODAS");
   const [selectedCategory, setSelectedCategory] = useState("TODAS");
   
-  // Filtros del Capítulo 2
   const [filterCityForChart1, setFilterCityForChart1] = useState("TODAS"); 
   const [filterChainForChart2, setFilterChainForChart2] = useState("TODAS"); 
   const [filterCityForPies, setFilterCityForPies] = useState("TODAS"); 
 
-  // Filtros del Capítulo 3
+  // Estado unificado del Capítulo 3
   const [selectedScope, setSelectedScope] = useState("HARINAS");
+  const [sideA, setSideA] = useState("TODA LA CATEGORÍA");
+  const [sideB, setSideB] = useState("TODA LA CATEGORÍA");
 
   const [fileName, setFileName] = useState("Datos de Muestra");
   const [error, setError] = useState("");
@@ -415,6 +385,12 @@ export default function App() {
       setError("Error procesando los datos iniciales.");
     }
   }, []);
+
+  // Resetea los menús comparativos cuando cambias de Categoría en el Scope
+  useEffect(() => {
+    setSideA("TODA LA CATEGORÍA");
+    setSideB("TODA LA CATEGORÍA");
+  }, [selectedScope]);
 
   const handleClearFilters = () => {
     setSelectedChain("TODAS");
@@ -436,16 +412,12 @@ export default function App() {
         if (parsed.length === 0) throw new Error("El archivo está vacío o no se pudo leer.");
         const results = analyzeData(parsed);
         setData(results);
-        setSelectedChain("TODAS");
-        setSelectedCity("TODAS");
-        setSelectedCategory("TODAS");
+        handleClearFilters();
         setFilterCityForChart1("TODAS");
         setFilterChainForChart2("TODAS");
         setFilterCityForPies("TODAS");
-        setSelectedScope("HARINAS");
       } catch (err) {
         setError("Error al leer el archivo. Asegúrate de que sea un CSV válido.");
-        console.error(err);
       }
     };
     reader.readAsText(file);
@@ -470,7 +442,7 @@ export default function App() {
     const subcategoriesCount = {};
     const productsCount = {};
     const catProducts = {};
-    const invoiceSubcats = {}; 
+    const invoiceSubcats = {};
 
     filteredRows.forEach(row => {
       const cod = row.COD_UNICO;
@@ -616,8 +588,8 @@ export default function App() {
         invoiceTracker[cod] = true; 
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
-        if (day === 'N/A') return;
 
+        if (day === 'N/A') return;
         xTotals[chain] = (xTotals[chain] || 0) + 1;
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][day] = (xSegmentTotals[chain][day] || 0) + 1;
@@ -627,7 +599,6 @@ export default function App() {
 
     const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
-
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
@@ -649,7 +620,6 @@ export default function App() {
       });
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
-
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
@@ -672,8 +642,8 @@ export default function App() {
         const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         if (hourNum === -1) return;
-
         const hourLabel = getHourRange(hourNum).replace(' - ', '-');
+
         xTotals[chain] = (xTotals[chain] || 0) + 1;
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][hourLabel] = (xSegmentTotals[chain][hourLabel] || 0) + 1;
@@ -691,7 +661,6 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-      
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
@@ -699,10 +668,8 @@ export default function App() {
         remaining -= perc;
         sumVal += val;
       });
-      
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
-      
       return { label: chain, total, blocks };
     });
 
@@ -725,7 +692,6 @@ export default function App() {
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
-
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
@@ -749,7 +715,6 @@ export default function App() {
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         const val = r.VAL_CLEAN || 0;
-
         if (day === 'N/A') return;
 
         xTotals[chain] = (xTotals[chain] || 0) + val;
@@ -761,7 +726,6 @@ export default function App() {
 
     const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
-
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
@@ -783,7 +747,6 @@ export default function App() {
       });
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
-
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
@@ -806,7 +769,6 @@ export default function App() {
         const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         const val = r.VAL_CLEAN || 0;
-
         if (hourNum === -1) return;
 
         const hourLabel = getHourRange(hourNum).replace(' - ', '-');
@@ -827,7 +789,6 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-      
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
@@ -835,10 +796,8 @@ export default function App() {
         remaining -= perc;
         sumVal += val;
       });
-      
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
-      
       return { label: chain, total, blocks };
     });
 
@@ -861,7 +820,6 @@ export default function App() {
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
-
     return { topSegments, chartColumns };
   }, [data, selectedChain, selectedCity, selectedCategory]);
 
@@ -873,6 +831,8 @@ export default function App() {
     const xTotals = {};
     const xSegmentCounts = {};
     const globalSegmentCount = {};
+    
+    // AUP: Conteo de ítems para el precio promedio
     const chainSegmentItems = {};
     const globalSegmentItems = {};
 
@@ -904,7 +864,7 @@ export default function App() {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
         const itemCount = chainSegmentItems[xLabel]?.[seg] || 1; 
-        const avg = count / itemCount; 
+        const avg = count / itemCount; // PRECIO PROMEDIO
         
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
@@ -920,6 +880,7 @@ export default function App() {
         const avgOtros = otrosVal / (otrosItemCount || 1);
         blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: avgOtros });
       }
+      
       return { label: xLabel, total, blocks };
     });
 
@@ -992,8 +953,9 @@ export default function App() {
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
-        const invCount = chainSegmentInvoices[xLabel]?.[seg]?.size || 1; 
+        const invCount = chainSegmentInvoices[xLabel]?.[seg]?.size || 1; // PROMEDIO DE UNIDADES POR FACTURA
         const avg = count / invCount; 
+        
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
         sumVal += count;
@@ -1008,6 +970,7 @@ export default function App() {
         const otrosInvCount = otrosInvoicesSet.size || 1;
         blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal / otrosInvCount });
       }
+      
       return { label: xLabel, total, blocks };
     });
 
@@ -1115,9 +1078,9 @@ export default function App() {
 
     filteredRows.forEach(r => {
       const cat = r.CAT_CLEAN || 'Sin Canasta';
-      if (excludedCats.includes(cat.toUpperCase().trim())) return;
-      const val = r.PROD_VAL_CLEAN || 0;
-      catTotals[cat] = (catTotals[cat] || 0) + val;
+      const catUpper = cat.toUpperCase().trim();
+      if (excludedCats.includes(catUpper)) return;
+      catTotals[cat] = (catTotals[cat] || 0) + (r.PROD_VAL_CLEAN || 0);
     });
     
     const top5Cats = Object.entries(catTotals).sort((a,b) => b[1] - a[1]).slice(0, 5).map(x => x[0]);
@@ -1133,13 +1096,15 @@ export default function App() {
           totalVal += val;
         }
       });
+
       const chains = Object.keys(chainTotals).sort((a,b) => chainTotals[b] - chainTotals[a]);
       const slices = chains.map((chain, idx) => {
         const globalChainIdx = data.chainList.indexOf(chain);
         const colorIdx = globalChainIdx >= 0 ? globalChainIdx : idx;
         return {
           label: chain, value: chainTotals[chain],
-          hexColor: HEX_COLORS[colorIdx % HEX_COLORS.length] || '#000', colorClass: CHART_COLORS[colorIdx % CHART_COLORS.length]
+          hexColor: HEX_COLORS[colorIdx % HEX_COLORS.length] || '#000',
+          colorClass: CHART_COLORS[colorIdx % CHART_COLORS.length]
         };
       });
       return { category: catName, total: totalVal, slices };
@@ -1148,135 +1113,140 @@ export default function App() {
     return pies;
   }, [data, filterCityForPies]);
 
-  const dynamicScopeData = useMemo(() => {
+  // CÁLCULO DINÁMICO DEL CAPÍTULO 3
+  const chapter3Data = useMemo(() => {
     if (!data) return null;
-
-    const targetInvoices = new Set();
+    const filteredRows = data.cleanRows;
+    
+    const scopeInvoices = new Set();
+    const productInvoices = {}; // producto -> Set de facturas
+    const scopeChainCount = {};
+    const scopeCityCount = {};
+    let scopeValue = 0;
+    let scopeItems = 0;
+    const scopeHours = {};
+    const scopeDays = {};
     const productCounts = {};
-    const chainCount = {};
-    const cityCount = {};
-    const hours = {};
-    const days = {};
-    let targetItemsCount = 0;
+    
+    const allInvoiceSubcats = {}; 
+    const allInvoiceTotals = {}; // Para el Ticket Real
 
-    const invoiceProductsList = {};
-    const invoiceSubcategoriesList = {};
-    const invoiceTotals = {};
-    const totalInvoicesSet = new Set();
-
-    // Recorrido base
-    data.cleanRows.forEach(r => {
+    // Recolectar datos y preparar cruces
+    filteredRows.forEach(r => {
       const cod = r.COD_UNICO;
-      totalInvoicesSet.add(cod);
+      if (!allInvoiceSubcats[cod]) allInvoiceSubcats[cod] = new Set();
+      allInvoiceSubcats[cod].add(r.SUBCAT_CLEAN || 'Sin Categoría');
+      allInvoiceTotals[cod] = r.VAL_CLEAN || 0;
 
-      if (!invoiceProductsList[cod]) invoiceProductsList[cod] = [];
-      invoiceProductsList[cod].push(r.PROD_CLEAN);
-
-      if (!invoiceSubcategoriesList[cod]) invoiceSubcategoriesList[cod] = new Set();
-      invoiceSubcategoriesList[cod].add(r.SUBCAT_CLEAN || 'Sin Categoría');
-
-      invoiceTotals[cod] = r.VAL_CLEAN; 
-
-      if (matchScope(r, selectedScope)) {
-        targetInvoices.add(cod);
-        targetItemsCount++;
-
-        const p = r.PROD_CLEAN;
-        productCounts[p] = (productCounts[p] || 0) + 1;
+      if (matchScope(r.SUBCAT_CLEAN, selectedScope)) {
+        scopeInvoices.add(cod);
+        scopeValue += (r.PROD_VAL_CLEAN || 0);
+        scopeItems += 1;
+        
+        const prod = r.PROD_CLEAN || 'Sin Producto';
+        productCounts[prod] = (productCounts[prod] || 0) + 1;
+        
+        if (!productInvoices[prod]) productInvoices[prod] = new Set();
+        productInvoices[prod].add(cod);
 
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
-        chainCount[chain] = (chainCount[chain] || 0) + 1;
-
         const city = r.CIUDAD_CLEAN || 'Sin Ciudad';
-        cityCount[city] = (cityCount[city] || 0) + 1;
+        scopeChainCount[chain] = (scopeChainCount[chain] || 0) + 1;
+        scopeCityCount[city] = (scopeCityCount[city] || 0) + 1;
 
-        const hour = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
-        if (hour !== -1) hours[hour] = (hours[hour] || 0) + 1;
+        const h = extractHourNum(r.TIME_CLEAN);
+        if(h !== -1) scopeHours[h] = (scopeHours[h] || 0) + 1;
 
-        let dayStr = "N/A";
-        if (r.DAY_CLEAN) {
-            dayStr = r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase();
-        } else if (r.DATE_CLEAN) {
-            const d = new Date(r.DATE_CLEAN);
-            if(!isNaN(d)) dayStr = new Intl.DateTimeFormat('es-CO', {weekday: 'long'}).format(d);
-            if(dayStr) dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
-        }
-        if (dayStr !== "N/A") days[dayStr] = (days[dayStr] || 0) + 1;
+        const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : "N/A";
+        if(day !== "N/A") scopeDays[day] = (scopeDays[day] || 0) + 1;
       }
     });
 
-    const totalInvoicesCount = totalInvoicesSet.size;
+    const top5Products = Object.entries(productCounts).sort((a,b)=>b[1]-a[1]).slice(0, 5).map(x=>x[0]);
 
-    const topProductsList = Object.entries(productCounts).sort((a,b)=>b[1]-a[1]);
-    const top1Prod = topProductsList[0] ? topProductsList[0][0] : null;
-    const top2Prod = topProductsList[1] ? topProductsList[1][0] : null;
+    // Calcular Afinidades (Venta Cruzada)
+    const scopeAffinities = {};
+    const productAffinities = {};
+    top5Products.forEach(p => productAffinities[p] = {});
 
-    const top1Invoices = new Set();
-    const top2Invoices = new Set();
-
-    Object.entries(invoiceProductsList).forEach(([cod, prods]) => {
-      if (top1Prod && prods.includes(top1Prod)) top1Invoices.add(cod);
-      if (top2Prod && prods.includes(top2Prod)) top2Invoices.add(cod);
+    scopeInvoices.forEach(cod => {
+      const subs = allInvoiceSubcats[cod];
+      if (subs) {
+        subs.forEach(sub => {
+          if (!matchScope(sub, selectedScope) && sub !== 'Sin Categoría' && sub !== 'SIN CATEGORÍA') {
+            scopeAffinities[sub] = (scopeAffinities[sub] || 0) + 1;
+          }
+        });
+      }
     });
 
-    const top1Affinity = {};
-    const top2Affinity = {};
-
-    Array.from(targetInvoices).forEach(cod => {
-      const subcats = Array.from(invoiceSubcategoriesList[cod] || []);
-      subcats.forEach(sub => {
-        if (matchScope({SUBCAT_CLEAN: sub, CAT_CLEAN: '', PROD_CLEAN: ''}, selectedScope)) return;
-        if (sub === 'Sin Categoría') return;
-
-        if (top1Invoices.has(cod)) top1Affinity[sub] = (top1Affinity[sub] || 0) + 1;
-        if (top2Invoices.has(cod)) top2Affinity[sub] = (top2Affinity[sub] || 0) + 1;
+    top5Products.forEach(p => {
+      if (!productInvoices[p]) return;
+      productInvoices[p].forEach(cod => {
+        const subs = allInvoiceSubcats[cod];
+        if (subs) {
+          subs.forEach(sub => {
+            if (!matchScope(sub, selectedScope) && sub !== 'Sin Categoría' && sub !== 'SIN CATEGORÍA') {
+              productAffinities[p][sub] = (productAffinities[p][sub] || 0) + 1;
+            }
+          });
+        }
       });
     });
 
-    let sumTicket = 0;
-    let sumBasketSize = 0;
-    targetInvoices.forEach(c => {
-      sumTicket += (invoiceTotals[c] || 0);
-      sumBasketSize += (invoiceProductsList[c] ? invoiceProductsList[c].length : 0);
+    const formatAffinities = (affMap, totalInv) => {
+      return Object.entries(affMap).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(([name, count]) => ({
+        name, count, percentage: totalInv > 0 ? (count / totalInv) * 100 : 0
+      }));
+    };
+
+    const topScopeAffinities = formatAffinities(scopeAffinities, scopeInvoices.size);
+    const topProductAffinities = {};
+    top5Products.forEach(p => {
+      topProductAffinities[p] = formatAffinities(productAffinities[p], productInvoices[p] ? productInvoices[p].size : 0);
     });
 
-    const avgTicket = targetInvoices.size > 0 ? sumTicket / targetInvoices.size : 0;
-    const avgBasketSize = targetInvoices.size > 0 ? sumBasketSize / targetInvoices.size : 0;
+    // Cálculos de resumen
+    const getPeakKey = (obj) => { const s = Object.entries(obj).sort((a,b)=>b[1]-a[1]); return s.length > 0 ? s[0][0] : "N/A"; };
+    let scopeTotalInvoiceSum = 0;
+    scopeInvoices.forEach(cod => scopeTotalInvoiceSum += (allInvoiceTotals[cod] || 0));
+    const totalGlobalInvoicesCount = Object.keys(allInvoiceTotals).length;
 
-    const mix = topProductsList.slice(0, 5).map(p => ({
-      name: p[0], value: targetItemsCount > 0 ? (p[1] / targetItemsCount) * 100 : 0
-    }));
+    const getPieSlices = (countObj, colorRefList) => {
+      return Object.entries(countObj).sort((a,b)=>b[1]-a[1]).map(([name, val], idx) => ({
+        label: name, value: val,
+        hexColor: HEX_COLORS[colorRefList.indexOf(name) >= 0 ? colorRefList.indexOf(name) % HEX_COLORS.length : idx % HEX_COLORS.length] || HEX_COLORS[idx % HEX_COLORS.length]
+      }));
+    };
+
+    // Tamaño de la canasta global (ítems promedio que lleva la factura)
+    let totalBasketItems = 0;
+    scopeInvoices.forEach(cod => {
+        let itemsInInvoice = 0;
+        filteredRows.forEach(r => { if (r.COD_UNICO === cod) itemsInInvoice++; });
+        totalBasketItems += itemsInInvoice;
+    });
 
     return {
-      penetration: totalInvoicesCount > 0 ? (targetInvoices.size / totalInvoicesCount) * 100 : 0,
-      avgTicket,
-      avgItems: targetInvoices.size > 0 ? targetItemsCount / targetInvoices.size : 0,
-      basketSize: avgBasketSize,
-      peakHour: getHourRange(getPeakHourKey(hours)),
-      peakDay: getPeakDayKey(days),
-      top1Name: top1Prod || "Producto Top 1",
-      top2Name: top2Prod || "Producto Top 2",
-      top1Affinity: getAffinityPercentageList(top1Affinity, top1Invoices.size),
-      top2Affinity: getAffinityPercentageList(top2Affinity, top2Invoices.size),
-      mix,
-      chainSlices: getPieSlices(chainCount, data.chainList),
-      citySlices: getPieSlices(cityCount, data.cityList)
+      penetration: totalGlobalInvoicesCount > 0 ? (scopeInvoices.size / totalGlobalInvoicesCount) * 100 : 0,
+      avgTicket: scopeInvoices.size > 0 ? scopeTotalInvoiceSum / scopeInvoices.size : 0, 
+      avgItems: scopeInvoices.size > 0 ? scopeItems / scopeInvoices.size : 0,
+      basketSize: scopeInvoices.size > 0 ? totalBasketItems / scopeInvoices.size : 0,
+      peakHour: getHourRange(parseInt(getPeakKey(scopeHours))),
+      peakDay: getPeakKey(scopeDays),
+      top5Products,
+      mix: top5Products.map(p => ({name: p, value: (productCounts[p] / scopeItems) * 100})),
+      topScopeAffinities,
+      topProductAffinities,
+      chainSlices: getPieSlices(scopeChainCount, data.chainList),
+      citySlices: getPieSlices(scopeCityCount, data.cityList),
+      scopeInvoicesCount: scopeInvoices.size,
+      productInvoicesCount: top5Products.reduce((acc, p) => ({...acc, [p]: productInvoices[p]?.size || 0}), {})
     };
   }, [data, selectedScope]);
 
   const formatCurrency = (val) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
   const formatNumber = (val) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(val);
-
-  const ScopeIcon = selectedScope === 'HARINAS' ? ChefHat : selectedScope === 'PASTA' ? Utensils : selectedScope === 'ACEITES' ? Droplet : Layers;
-  
-  const getTheme = () => {
-    if(selectedScope === 'HARINAS') return { border: 'border-t-amber-400 dark:border-t-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-amber-600 dark:text-amber-400', bar1: 'bg-amber-500', bar2: 'bg-yellow-400' };
-    if(selectedScope === 'PASTA') return { border: 'border-t-red-400 dark:border-t-red-500', bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-600 dark:text-red-400', bar1: 'bg-red-500', bar2: 'bg-rose-400' };
-    if(selectedScope === 'ACEITES') return { border: 'border-t-emerald-400 dark:border-t-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-600 dark:text-emerald-400', bar1: 'bg-emerald-500', bar2: 'bg-teal-400' };
-    // Tema para ESPARCIBLES
-    return { border: 'border-t-yellow-400 dark:border-t-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900/40', text: 'text-yellow-600 dark:text-yellow-400', bar1: 'bg-yellow-500', bar2: 'bg-orange-400' };
-  };
-  const theme = getTheme();
 
   if (!data && !error) return <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900"><div className="animate-pulse text-xl text-indigo-600 dark:text-indigo-400 font-semibold">Analizando Datos...</div></div>;
 
@@ -1309,159 +1279,270 @@ export default function App() {
                   Capítulo 1: Generalidades y Desempeño
                 </h2>
                 <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg border border-indigo-100 dark:border-indigo-800/50 flex-wrap">
+                  
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Store size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Cadena:</label>
-                    <select value={selectedChain} onChange={(e) => setSelectedChain(e.target.value)} className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"><option value="TODAS">TODAS</option>{data.chainList.map(chain => <option key={chain} value={chain}>{chain}</option>)}</select>
+                    <select 
+                      value={selectedChain} 
+                      onChange={(e) => setSelectedChain(e.target.value)} 
+                      className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"
+                    >
+                      <option value="TODAS">TODAS</option>
+                      {data.chainList.map(chain => <option key={chain} value={chain}>{chain}</option>)}
+                    </select>
                   </div>
+                  
                   <div className="hidden sm:block w-px h-6 bg-indigo-200 dark:bg-indigo-700"></div>
+                  
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Map size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Ciudad:</label>
-                    <select value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"><option value="TODAS">TODAS</option>{data.cityList.map(city => <option key={city} value={city}>{city}</option>)}</select>
+                    <select 
+                      value={selectedCity} 
+                      onChange={(e) => setSelectedCity(e.target.value)} 
+                      className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"
+                    >
+                      <option value="TODAS">TODAS</option>
+                      {data.cityList.map(city => <option key={city} value={city}>{city}</option>)}
+                    </select>
                   </div>
+
                   <div className="hidden sm:block w-px h-6 bg-indigo-200 dark:bg-indigo-700"></div>
+
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Layers size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Canasta:</label>
-                    <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"><option value="TODAS">TODAS</option>{data.catList.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>
+                    <select 
+                      value={selectedCategory} 
+                      onChange={(e) => setSelectedCategory(e.target.value)} 
+                      className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer shadow-sm w-full sm:w-32"
+                    >
+                      <option value="TODAS">TODAS</option>
+                      {data.catList.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
                   </div>
+
                   {(selectedChain !== "TODAS" || selectedCity !== "TODAS" || selectedCategory !== "TODAS") && (
-                    <button onClick={handleClearFilters} className="flex items-center justify-center p-1.5 rounded-md bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors sm:ml-2 shadow-sm" title="Borrar Filtros"><RotateCcw size={18} /></button>
+                    <button 
+                      onClick={handleClearFilters}
+                      className="flex items-center justify-center p-1.5 rounded-md bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-400 dark:hover:bg-red-900/60 transition-colors sm:ml-2 shadow-sm"
+                      title="Borrar Filtros"
+                    >
+                      <RotateCcw size={18} />
+                    </button>
                   )}
+
                 </div>
               </div>
 
               {chapter1Stats.totalInvoices > 0 ? (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                    <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-800 border-blue-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg"><Calendar size={24} /></div><div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día Pico de Tráfico</p><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topDay}</h3><p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">{chapter1Stats.kpis.topDayCount} facturas</p></div></div></Card>
-                    <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 border-emerald-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg"><Clock size={24} /></div><div className="flex-1"><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora Más Concurrida</p><div className="flex items-center gap-2"><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topTxHourRange}</h3>{chapter1Stats.kpis.topTxJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">{chapter1Stats.kpis.topTxJornada}</span>}</div><p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">{chapter1Stats.kpis.topTxHourCount} facturas • <span className="text-gray-500 dark:text-gray-400">Tk Prom: {formatCurrency(chapter1Stats.kpis.topTxHourAvgVal)}</span></p></div></div></Card>
-                    <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-gray-800 dark:to-gray-800 border-amber-100 dark:border-gray-700 shadow-none"><div className="flex items-center gap-4"><div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-lg"><TrendingUp size={24} /></div><div className="flex-1"><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora de Mayor Gasto (Ticket)</p><div className="flex items-center gap-2"><h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topAvgHourRange}</h3>{chapter1Stats.kpis.topAvgJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-emerald-400">{chapter1Stats.kpis.topAvgJornada}</span>}</div><p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(chapter1Stats.kpis.topAvgHourVal)} prom.</p></div></div></Card>
+                    <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-800 border-blue-100 dark:border-gray-700 shadow-none">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg"><Calendar size={24} /></div>
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Día Pico de Tráfico</p>
+                          <h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topDay}</h3>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold">{chapter1Stats.kpis.topDayCount} facturas</p>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 border-emerald-100 dark:border-gray-700 shadow-none">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg"><Clock size={24} /></div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora Más Concurrida</p>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topTxHourRange}</h3>
+                            {chapter1Stats.kpis.topTxJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">{chapter1Stats.kpis.topTxJornada}</span>}
+                          </div>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+                            {chapter1Stats.kpis.topTxHourCount} facturas • <span className="text-gray-500 dark:text-gray-400">Tk Prom: {formatCurrency(chapter1Stats.kpis.topTxHourAvgVal)}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-gray-800 dark:to-gray-800 border-amber-100 dark:border-gray-700 shadow-none">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-lg"><TrendingUp size={24} /></div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Hora de Mayor Gasto (Ticket)</p>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xl font-bold dark:text-gray-100">{chapter1Stats.kpis.topAvgHourRange}</h3>
+                            {chapter1Stats.kpis.topAvgJornada !== "N/A" && <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">{chapter1Stats.kpis.topAvgJornada}</span>}
+                          </div>
+                          <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">{formatCurrency(chapter1Stats.kpis.topAvgHourVal)} prom.</p>
+                        </div>
+                      </div>
+                    </Card>
                   </div>
 
                   <div className="space-y-8">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl border border-gray-100 dark:border-gray-600/50"><div className="p-4 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full"><ShoppingCart size={28} /></div><div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ticket Promedio</p><h3 className="text-3xl font-bold dark:text-gray-100">{formatCurrency(chapter1Stats.avgTicket)}</h3></div></div>
-                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl border border-gray-100 dark:border-gray-600/50"><div className="p-4 bg-fuchsia-100 dark:bg-fuchsia-900/50 text-fuchsia-600 dark:text-fuchsia-400 rounded-full"><ShoppingBag size={28} /></div><div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ítems por Factura</p><h3 className="text-3xl font-bold dark:text-gray-100">{formatNumber(chapter1Stats.avgItems)} <span className="text-lg font-normal text-gray-400 dark:text-gray-500">ítems</span></h3></div></div>
+                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl border border-gray-100 dark:border-gray-600/50">
+                        <div className="p-4 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full"><ShoppingCart size={28} /></div>
+                        <div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ticket Promedio</p><h3 className="text-3xl font-bold dark:text-gray-100">{formatCurrency(chapter1Stats.avgTicket)}</h3></div>
+                      </div>
+                      <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl border border-gray-100 dark:border-gray-600/50">
+                        <div className="p-4 bg-fuchsia-100 dark:bg-fuchsia-900/50 text-fuchsia-600 dark:text-fuchsia-400 rounded-full"><ShoppingBag size={28} /></div>
+                        <div><p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Ítems por Factura</p><h3 className="text-3xl font-bold dark:text-gray-100">{formatNumber(chapter1Stats.avgItems)} <span className="text-lg font-normal text-gray-400 dark:text-gray-500">ítems</span></h3></div>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       {/* Top 20 Productos */}
-                      <div className="col-span-1">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2"><Tag className="text-indigo-500 dark:text-indigo-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Productos</h3></div>
-                          <button onClick={() => handleExportGenericCSV('Top_20_Productos', chapter1Stats.topProducts.map(p => ({ Producto: p.name, 'Cantidad Vendida': p.value, 'Porcentaje del Total': p.percentage.toFixed(2) + '%' })))} className="p-1.5 rounded bg-gray-100 hover:bg-indigo-100 text-gray-500 hover:text-indigo-600 dark:bg-gray-700 dark:hover:bg-indigo-900/50 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors" title="Exportar CSV"><Download size={16} /></button>
-                        </div>
+                      <div className="col-span-1 relative">
+                        <button 
+                          onClick={() => exportToCSV('Top_20_Productos', [['Producto', '% Unidades']].concat(chapter1Stats.topProducts.map(p => [p.name, p.percentage.toFixed(2)])))}
+                          className="absolute right-0 top-0 p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md text-gray-600 dark:text-gray-300 transition-colors" title="Exportar CSV">
+                          <Download size={16} />
+                        </button>
+                        <div className="flex items-center gap-2 mb-4"><Tag className="text-indigo-500 dark:text-indigo-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Productos</h3></div>
                         <div>{chapter1Stats.topProducts.map((prod, idx) => <ProgressBar key={idx} label={prod.name} value={prod.percentage} max={chapter1Stats.topProducts[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-indigo-500 dark:bg-indigo-400"/>)}</div>
                       </div>
                       
                       {/* Top 5 Categorías */}
-                      <div className="col-span-1 border-l border-r border-gray-100 dark:border-gray-700 px-0 lg:px-8">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2"><BarChart className="text-fuchsia-500 dark:text-fuchsia-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 5 Canastas</h3></div>
-                          <button onClick={() => handleExportGenericCSV('Top_5_Canastas', chapter1Stats.topCategories.map(c => ({ Canasta: c.name, Frecuencia: c.value, Porcentaje: c.percentage.toFixed(2) + '%', 'Top Productos': c.topProds.map(p=>p.name).join(' | ') })))} className="p-1.5 rounded bg-gray-100 hover:bg-fuchsia-100 text-gray-500 hover:text-fuchsia-600 dark:bg-gray-700 dark:hover:bg-fuchsia-900/50 dark:text-gray-400 dark:hover:text-fuchsia-400 transition-colors" title="Exportar CSV"><Download size={16} /></button>
-                        </div>
+                      <div className="col-span-1 border-l border-r border-gray-100 dark:border-gray-700 px-0 lg:px-8 relative">
+                        <button 
+                          onClick={() => exportToCSV('Top_5_Canastas', [['Canasta', '% Unidades']].concat(chapter1Stats.topCategories.map(c => [c.name, c.percentage.toFixed(2)])))}
+                          className="absolute right-0 lg:right-4 top-0 p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md text-gray-600 dark:text-gray-300 transition-colors" title="Exportar CSV">
+                          <Download size={16} />
+                        </button>
+                        <div className="flex items-center gap-2 mb-4"><BarChart className="text-fuchsia-500 dark:text-fuchsia-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 5 Canastas</h3></div>
                         <div>
                           {chapter1Stats.topCategories.map((cat, idx) => (
                             <div key={idx} className="mb-5 last:mb-0">
                               <ProgressBar label={cat.name} value={cat.percentage} max={chapter1Stats.topCategories[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-fuchsia-500 dark:bg-fuchsia-400" className="mb-1" />
-                              <div className="flex flex-wrap gap-1">{cat.topProds.map((p, i) => (<span key={i} className="text-[10px] bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300 px-1.5 py-0.5 rounded border border-fuchsia-100 dark:border-fuchsia-800/50 truncate max-w-full" title={p.name}>{p.name} ({p.val})</span>))}</div>
+                              <div className="flex flex-wrap gap-1">
+                                {cat.topProds.map((p, i) => (
+                                  <span key={i} className="text-[10px] bg-fuchsia-50 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300 px-1.5 py-0.5 rounded border border-fuchsia-100 dark:border-fuchsia-800/50 truncate max-w-full" title={p.name}>
+                                    {p.name} ({p.val})
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       {/* Top 20 Subcategorías */}
-                      <div className="col-span-1">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Categorías</h3></div>
-                          <button onClick={() => handleExportGenericCSV('Top_20_Categorias', chapter1Stats.topSubcategories.map(s => ({ Categoria: s.name, Unidades: s.count, Porcentaje: s.percentage.toFixed(2) + '%' })))} className="p-1.5 rounded bg-gray-100 hover:bg-teal-100 text-gray-500 hover:text-teal-600 dark:bg-gray-700 dark:hover:bg-teal-900/50 dark:text-gray-400 dark:hover:text-teal-400 transition-colors" title="Exportar CSV"><Download size={16} /></button>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta categoría:</p>
-                        <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
-                      </div>
-                    </div>
-
-                  {/* VENTA CRUZADA TOP 20 (Mostrando 10 afinidades) */}
-                  <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-lg"><ShoppingCart size={20} /></div>
-                        <div>
-                          <h3 className="text-lg font-bold dark:text-gray-100">Venta Cruzada: Afinidades del Top 20 Categorías</h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Cuando un cliente lleva una de estas 20 categorías principales, ¿qué otras 10 suele incluir en su factura?</p>
-                        </div>
-                      </div>
+                    <div className="col-span-1 relative">
                       <button 
-                        onClick={() => {
-                          const rows = [];
-                          chapter1Stats.topSubcategories.forEach(sub => {
-                            if(sub.top10Affinities) {
-                              sub.top10Affinities.forEach(aff => { rows.push({ 'Categoría Base': sub.name, 'Categoría Cruzada': aff.name, 'Probabilidad Compra Conjunta (%)': aff.percentage.toFixed(2) + '%' }); });
-                            }
-                          });
-                          handleExportGenericCSV('Matriz_Venta_Cruzada', rows);
-                        }} 
-                        className="flex items-center justify-center p-2 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/60 transition-colors shadow-sm" title="Exportar Datos Completos de Afinidad">
-                        <Download size={20} />
+                        onClick={() => exportToCSV('Top_20_Categorias', [['Categoría', '% Unidades']].concat(chapter1Stats.topSubcategories.map(s => [s.name, s.percentage.toFixed(2)])))}
+                        className="absolute right-0 top-0 p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md text-gray-600 dark:text-gray-300 transition-colors" title="Exportar CSV">
+                        <Download size={16} />
                       </button>
+                      <div className="flex items-center gap-2 mb-4"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Categorías</h3></div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta categoría:</p>
+                      <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
                     </div>
+                  </div>
 
+                  {/* VENTA CRUZADA TOP 20 */}
+                  <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700 relative">
+                    <button 
+                      onClick={() => {
+                        const rows = [['Categoría Base', 'Categoría Cruzada', '% Afinidad']];
+                        chapter1Stats.topSubcategories.forEach(sub => {
+                          (sub.top10Affinities || []).forEach(aff => {
+                            rows.push([sub.name, aff.name, aff.percentage.toFixed(2)]);
+                          });
+                        });
+                        exportToCSV('Venta_Cruzada_Top20', rows);
+                      }}
+                      className="absolute right-0 top-6 flex items-center gap-2 p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/60 dark:text-indigo-400 rounded-lg border border-indigo-100 dark:border-indigo-800/50 transition-colors shadow-sm" title="Exportar Matriz a CSV">
+                      <Download size={18} /> <span className="text-sm font-semibold hidden sm:inline">Exportar Matriz</span>
+                    </button>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-lg">
+                        <ShoppingCart size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold dark:text-gray-100 pr-32">Venta Cruzada: Afinidades del Top 20 Categorías</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Cuando un cliente lleva una de estas 20 categorías principales, ¿qué otras 10 suele incluir en su factura?</p>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       {chapter1Stats.topSubcategories.map((subcat, idx) => (
                         <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex flex-col h-full hover:shadow-md transition-shadow">
-                          <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-600 truncate" title={subcat.name}><span className="text-orange-500 dark:text-orange-400 mr-1">{idx + 1}.</span> {subcat.name}</h4>
+                          <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-600 truncate" title={subcat.name}>
+                            <span className="text-orange-500 dark:text-orange-400 mr-1">{idx + 1}.</span> {subcat.name}
+                          </h4>
                           <div className="flex-1 flex flex-col justify-start space-y-2">
                             {subcat.top10Affinities && subcat.top10Affinities.length > 0 ? (
-                              subcat.top10Affinities.map((aff, i) => <ProgressBar key={i} label={aff.name} value={aff.percentage} max={subcat.top10Affinities[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-orange-400 dark:bg-orange-500" className="mb-0" />)
-                            ) : (<div className="flex-1 flex items-center justify-center py-4"><p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin cruces frecuentes</p></div>)}
+                              subcat.top10Affinities.map((aff, i) => (
+                                <ProgressBar key={i} label={aff.name} value={aff.percentage} max={subcat.top10Affinities[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-orange-400 dark:bg-orange-500" className="mb-0" />
+                              ))
+                            ) : (
+                              <div className="flex-1 flex items-center justify-center py-4">
+                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin cruces frecuentes</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* GRÁFICOS APILADOS DE TRÁFICO Y VENTAS */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
                     <PercentageStackedBarChart chartData={dayTrafficData} title="Distribución Tráfico por Día" description="% de Facturas (clientes) de cada Cadena distribuido según el Día." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
                     <PercentageStackedBarChart chartData={hourTrafficData} title="Distribución Tráfico por Hora" description="% de Facturas (clientes) de cada Cadena distribuido en su Franja Horaria." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
                     <PercentageStackedBarChart chartData={daySalesData} title="Distribución Ventas por Día" description="% del Dinero total (Ventas) de cada Cadena distribuido según el Día." icon={Calendar} isCurrency={true} hideYAxis={true} />
                     <PercentageStackedBarChart chartData={hourSalesData} title="Distribución Ventas por Hora" description="% del Dinero total (Ventas) de cada Cadena distribuido en su Franja Horaria." icon={Clock} isCurrency={true} hideYAxis={true} />
                   </div>
-                </div>
-              </>
-            ) : (
-              <div className="py-12 flex flex-col items-center justify-center text-center"><Info size={48} className="text-gray-300 dark:text-gray-600 mb-4" /><h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">Sin datos registrados</h3><p className="text-gray-500 dark:text-gray-400">No encontramos facturas para la combinación de Cadena y Ciudad seleccionada.</p></div>
-            )}
+                </>
+              ) : (
+                <div className="py-12 flex flex-col items-center justify-center text-center">
+                    <Info size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
+                    <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">Sin datos registrados</h3>
+                    <p className="text-gray-500 dark:text-gray-400">No encontramos facturas para la combinación de Cadena y Ciudad seleccionada.</p>
+                  </div>
+                )}
             </section>
 
             {/* CAPÍTULO 2 */}
             <section className="space-y-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-indigo-500 pl-3">Capítulo 2: Análisis Comparativo</h2>
+              
               <div className="grid grid-cols-1 gap-8">
                 
-                {/* DONAS TOP 5 CANASTAS */}
-                <Card className="col-span-1 border-t-4 border-t-indigo-400 dark:border-t-indigo-500">
+                <Card className="col-span-1 border-t-4 border-t-indigo-400 dark:border-t-indigo-500 relative">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
                     <div>
                       <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><PieChart className="text-indigo-500 dark:text-indigo-400"/> Participación en Top 5 Canastas</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Distribución de las ventas ($) entre Cadenas para las 5 canastas principales.</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <Filter size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
-                        <label className="text-sm font-medium text-gray-500 dark:text-gray-300 flex-shrink-0">Filtrar Ciudad:</label>
-                        <select value={filterCityForPies} onChange={(e) => setFilterCityForPies(e.target.value)} className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer w-full truncate shadow-sm"><option value="TODAS">TODAS LAS CIUDADES</option>{data.cityList.map(city => <option key={city} value={city}>{city}</option>)}</select>
-                      </div>
-                      <button 
-                        onClick={() => {
-                          const rows = [];
-                          topCategoryPiesData.forEach(pie => pie.slices.forEach(s => rows.push({ Canasta: pie.category, 'Total Canasta ($)': pie.total, Cadena: s.label, 'Ventas de la Cadena ($)': s.value, 'Participacion (%)': pie.total > 0 ? ((s.value/pie.total)*100).toFixed(2) + '%' : '0%' })));
-                          handleExportGenericCSV('Participacion_Top5_Canastas', rows);
-                        }} 
-                        className="flex items-center justify-center p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/60 transition-colors shadow-sm" title="Exportar CSV de Participación"><Download size={20} />
-                      </button>
+                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg border border-gray-200 dark:border-gray-600 max-w-full sm:max-w-xs">
+                      <Filter size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <label className="text-sm font-medium text-gray-500 dark:text-gray-300 flex-shrink-0">Filtrar Ciudad:</label>
+                      <select 
+                        value={filterCityForPies} 
+                        onChange={(e) => setFilterCityForPies(e.target.value)} 
+                        className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer w-full truncate shadow-sm py-1 pl-1 pr-6"
+                      >
+                        <option value="TODAS">TODAS LAS CIUDADES</option>
+                        {data.cityList.map(city => <option key={city} value={city}>{city}</option>)}
+                      </select>
+                      {topCategoryPiesData && topCategoryPiesData.length > 0 && (
+                        <button 
+                          onClick={() => {
+                            const rows = [['Canasta', 'Cadena', 'Ventas ($)', '% Participación']];
+                            topCategoryPiesData.forEach(pie => {
+                              pie.slices.forEach(s => {
+                                rows.push([pie.category, s.label, s.value, pie.total > 0 ? ((s.value/pie.total)*100).toFixed(2) : 0]);
+                              });
+                            });
+                            exportToCSV('Participacion_Top5_Canastas', rows);
+                          }}
+                          className="p-1.5 rounded-md bg-indigo-100 text-indigo-600 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:hover:bg-indigo-900/60 transition-colors shadow-sm"
+                          title="Exportar a CSV">
+                          <Download size={18} />
+                        </button>
+                      )}
                     </div>
                   </div>
                   
@@ -1475,7 +1556,10 @@ export default function App() {
                           <div className="mt-4 w-full space-y-2">
                             {pie.slices.map(s => (
                               <div key={s.label} className="flex items-center justify-between text-[10px] sm:text-xs">
-                                <div className="flex items-center gap-2 truncate pr-2"><div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0`} style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div>
+                                <div className="flex items-center gap-2 truncate pr-2">
+                                  <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0`} style={{backgroundColor: s.hexColor}}></div>
+                                  <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
+                                </div>
                                 <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{pie.total > 0 ? ((s.value / pie.total) * 100).toFixed(1) : 0}%</span>
                               </div>
                             ))}
@@ -1483,122 +1567,297 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-                  ) : (<p className="text-center text-gray-500 py-8">No hay datos para mostrar en esta selección.</p>)}
+                  ) : (
+                    <p className="text-center text-gray-500 py-8">No hay datos para mostrar en esta selección.</p>
+                  )}
                 </Card>
 
-                <PercentageStackedBarChart chartData={chart1Data} title="Mix de Canastas por Cadena (Precio Promedio $)" description="Valor promedio de un (1) producto de esta canasta en cada cadena. La barra representa la proporción del gasto." icon={BarChart} filterLabel="Filtrar por Ciudad" filterValue={filterCityForChart1} setFilterValue={setFilterCityForChart1} filterOptions={data.cityList} defaultFilterText="TODAS LAS CIUDADES" isCurrency={true} showAverageInsteadOfPercentage={true} />
-                <PercentageStackedBarChart chartData={chart1DataUnits} title="Mix de Canastas por Cadena (Promedio Unidades)" description="Promedio de unidades (ítems) aportados por canasta por cada factura que la incluye." icon={Layers} filterLabel="Filtrar por Ciudad" filterValue={filterCityForChart1} setFilterValue={setFilterCityForChart1} filterOptions={data.cityList} defaultFilterText="TODAS LAS CIUDADES" isCurrency={false} valueSuffix=" unid." showAverageInsteadOfPercentage={true} />
-                <PercentageStackedBarChart chartData={chart2Data} title="Distribución de Ventas por Ciudad" description="Mix porcentual de ingresos (dinero) por canasta observando una Cadena específica a través de las ciudades." icon={Map} filterLabel="Filtrar por Cadena" filterValue={filterChainForChart2} setFilterValue={setFilterChainForChart2} filterOptions={data.chainList} defaultFilterText="TODAS LAS CADENAS" isCurrency={true} />
+                <PercentageStackedBarChart 
+                  chartData={chart1Data} 
+                  title="Mix de Canastas por Cadena (Precio Promedio $)" 
+                  description="Valor promedio de un (1) producto de esta canasta en cada cadena. La barra representa la proporción del gasto."
+                  icon={BarChart} 
+                  filterLabel="Filtrar por Ciudad"
+                  filterValue={filterCityForChart1} 
+                  setFilterValue={setFilterCityForChart1} 
+                  filterOptions={data.cityList} 
+                  defaultFilterText="TODAS LAS CIUDADES"
+                  isCurrency={true}
+                  showAverageInsteadOfPercentage={true}
+                />
+
+                <PercentageStackedBarChart 
+                  chartData={chart1DataUnits} 
+                  title="Mix de Canastas por Cadena (Promedio Unidades)" 
+                  description="Promedio de unidades (ítems) aportados por canasta por cada factura que la incluye."
+                  icon={Layers} 
+                  filterLabel="Filtrar por Ciudad"
+                  filterValue={filterCityForChart1} 
+                  setFilterValue={setFilterCityForChart1} 
+                  filterOptions={data.cityList} 
+                  defaultFilterText="TODAS LAS CIUDADES"
+                  isCurrency={false}
+                  valueSuffix=" unid."
+                  showAverageInsteadOfPercentage={true}
+                />
+
+                <PercentageStackedBarChart 
+                  chartData={chart2Data} 
+                  title="Distribución de Ventas por Ciudad" 
+                  description="Mix porcentual de ingresos (dinero) por canasta observando una Cadena específica a través de las ciudades."
+                  icon={Map} 
+                  filterLabel="Filtrar por Cadena"
+                  filterValue={filterChainForChart2} 
+                  setFilterValue={setFilterChainForChart2} 
+                  filterOptions={data.chainList} 
+                  defaultFilterText="TODAS LAS CADENAS"
+                  isCurrency={true}
+                />
               </div>
             </section>
 
-            {/* CAPÍTULO 3 DINÁMICO */}
+            {/* CAPÍTULO 3: SCOPE DINÁMICO */}
             <section className="space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-amber-500 pl-3">Capítulo 3: Deep Dive por Categoría Estratégica</h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-amber-500 pl-3">
+                  Capítulo 3: Scope Deep Dive
+                </h2>
                 
-                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm w-full sm:w-auto">
-                  <Filter size={20} className="text-gray-500 dark:text-gray-400" />
-                  <label className="text-sm font-semibold text-gray-600 dark:text-gray-300">Explorar Categoría:</label>
-                  <select 
-                    value={selectedScope} 
-                    onChange={(e) => setSelectedScope(e.target.value)} 
-                    className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm font-bold cursor-pointer px-3 py-1.5 shadow-sm"
-                  >
-                    <option value="HARINAS">HARINAS</option>
-                    <option value="PASTA">PASTA</option>
-                    <option value="ACEITES">ACEITES</option>
-                    <option value="ESPARCIBLES">ESPARCIBLES</option>
-                  </select>
+                {/* SELECTOR MAESTRO DE SCOPE */}
+                <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg border border-amber-200 dark:border-amber-800/50 shadow-sm">
+                  <div className="p-1.5 bg-amber-500 text-white rounded-md"><ChefHat size={18}/></div>
+                  <label className="text-sm font-medium text-amber-800 dark:text-amber-300">Categoría a Analizar:</label>
+                  <div className="relative">
+                    <select 
+                      value={selectedScope} 
+                      onChange={(e) => setSelectedScope(e.target.value)} 
+                      className="appearance-none bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded-md focus:ring-2 focus:ring-amber-500 text-sm font-bold cursor-pointer py-1.5 pl-3 pr-8 shadow-sm min-w-[150px]"
+                    >
+                      <option value="HARINAS">HARINAS</option>
+                      <option value="PASTA">PASTAS</option>
+                      <option value="ACEITES">ACEITES</option>
+                      <option value="ESPARCIBLES">ESPARCIBLES</option>
+                    </select>
+                    <ChevronDown size={16} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
-              {dynamicScopeData && (
-                <Card className={`border-t-4 ${theme.border}`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-3 rounded-full ${theme.bg} ${theme.text}`}><ScopeIcon size={28}/></div>
-                      <div>
-                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Scope: {selectedScope}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className={`font-bold ${theme.text}`}>{dynamicScopeData.penetration.toFixed(1)}%</span> de toda la muestra.</p>
-                      </div>
-                    </div>
+              {chapter3Data && chapter3Data.scopeInvoicesCount > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* COLUMNA IZQUIERDA: RESUMEN DE COMPRA Y DONAS */}
+                  <Card className="border-t-4 border-t-amber-400 dark:border-t-amber-500 relative flex flex-col h-full">
                     <button 
                       onClick={() => {
                         const rows = [
-                          { Indicador: 'Penetración General (%)', Detalle: '', Valor: dynamicScopeData.penetration.toFixed(2) + '%' },
-                          { Indicador: 'Ticket Promedio ($)', Detalle: '', Valor: dynamicScopeData.avgTicket.toFixed(0) },
-                          { Indicador: 'Promedio Items Categoría', Detalle: '', Valor: dynamicScopeData.avgItems.toFixed(2) },
-                          { Indicador: 'Total Items Canasta', Detalle: '', Valor: dynamicScopeData.basketSize.toFixed(2) },
-                          ...dynamicScopeData.mix.map(m => ({ Indicador: 'Mix (% Unidades)', Detalle: m.name, Valor: m.value.toFixed(2) + '%' })),
-                          ...dynamicScopeData.top1Affinity.map(a => ({ Indicador: `Afinidad: ${dynamicScopeData.top1Name}`, Detalle: a.name, Valor: a.value.toFixed(2) + '%' })),
-                          ...dynamicScopeData.top2Affinity.map(a => ({ Indicador: `Afinidad: ${dynamicScopeData.top2Name}`, Detalle: a.name, Valor: a.value.toFixed(2) + '%' })),
-                          ...dynamicScopeData.chainSlices.map(s => ({ Indicador: 'Ventas por Cadena (Unid.)', Detalle: s.label, Valor: s.value })),
-                          ...dynamicScopeData.citySlices.map(s => ({ Indicador: 'Ventas por Ciudad (Unid.)', Detalle: s.label, Valor: s.value }))
+                          ['Metrica', 'Valor'],
+                          ['Penetración General (%)', chapter3Data.penetration.toFixed(2)],
+                          ['Ticket Promedio de la Categoría ($)', chapter3Data.avgTicket.toFixed(0)],
+                          ['Unidades Promedio de la Categoría', chapter3Data.avgItems.toFixed(2)],
+                          ['Tamaño de Canasta (Total Ítems en factura)', chapter3Data.basketSize.toFixed(2)],
+                          ['Hora Pico de Compra', chapter3Data.peakHour],
+                          ['Día Pico de Compra', chapter3Data.peakDay]
                         ];
-                        handleExportGenericCSV(`Scope_${selectedScope}`, rows);
-                      }} 
-                      className={`flex items-center justify-center p-2 rounded-lg ${theme.bg} ${theme.text} transition-colors shadow-sm`} title={`Descargar Resumen de ${selectedScope}`}>
+                        exportToCSV(`Scope_${selectedScope}_Resumen`, rows);
+                      }}
+                      className="absolute right-6 top-6 p-2 bg-amber-50 hover:bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:hover:bg-amber-900/60 dark:text-amber-400 rounded-lg border border-amber-100 dark:border-amber-800/50 transition-colors shadow-sm" title="Exportar Resumen a CSV">
                       <Download size={20} />
                     </button>
-                  </div>
-
-                  <div className="flex gap-2 sm:gap-4 mb-8 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex-wrap">
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(dynamicScopeData.avgTicket)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Ítems Categoría</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(dynamicScopeData.avgItems)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Total Canasta</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(dynamicScopeData.basketSize)}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p><p className="text-base sm:text-lg font-bold dark:text-gray-100">{dynamicScopeData.peakHour}</p></div><div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
-                    <div className="flex-1 text-center min-w-[80px]"><p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p><p className={`text-base sm:text-lg font-bold ${theme.text}`}>{dynamicScopeData.peakDay}</p></div>
-                  </div>
-
-                  <div className="mb-8">
-                    <h4 className="text-md font-bold mb-4 flex items-center gap-2 dark:text-gray-200"><PieChart size={18} className={theme.text}/> Mix de Productos (Top 5 en Unidades)</h4>
-                    {dynamicScopeData.mix.map((item, idx) => (
-                      <ProgressBar key={idx} label={item.name} value={item.value} max={Math.max(...dynamicScopeData.mix.map(i=>i.value))} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass={CHART_COLORS[idx % CHART_COLORS.length]} />
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Qué se compra con: {dynamicScopeData.top1Name}</h4>
-                      {dynamicScopeData.top1Affinity.length > 0 ? dynamicScopeData.top1Affinity.map((p, idx) => (
-                        <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.top1Affinity[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass={theme.bar1}/>
-                      )) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin suficientes cruces para mostrar</p>}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Qué se compra con: {dynamicScopeData.top2Name}</h4>
-                      {dynamicScopeData.top2Affinity.length > 0 ? dynamicScopeData.top2Affinity.map((p, idx) => (
-                        <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.top2Affinity[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass={theme.bar2}/>
-                      )) : <p className="text-xs text-gray-400 dark:text-gray-500">Sin suficientes cruces para mostrar</p>}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-8 border-t border-gray-100 dark:border-gray-700 pt-6">
-                    <div className="flex flex-col items-center">
-                      <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">¿Dónde se compran? (Por Cadena)</h4>
-                      <SVGDonut slices={dynamicScopeData.chainSlices} size="w-28 h-28" />
-                      <div className="mt-4 w-full max-w-xs space-y-2">
-                        {dynamicScopeData.chainSlices.map(s => (
-                          <div key={s.label} className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 truncate pr-2"><div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div>
-                            <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{dynamicScopeData.chainSlices.reduce((a,b)=>a+b.value, 0) > 0 ? ((s.value / dynamicScopeData.chainSlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1) : 0}%</span>
-                          </div>
-                        ))}
+                    
+                    <div className="flex items-center gap-3 mb-6 pr-12">
+                      <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full"><CheckCircle2 size={28}/></div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 uppercase">Scope: {selectedScope}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className="font-bold text-amber-600 dark:text-amber-400">{chapter3Data.penetration.toFixed(1)}%</span> de todas las facturas globales.</p>
                       </div>
                     </div>
-                    <div className="flex flex-col items-center">
-                      <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">¿Dónde se compran? (Por Ciudad)</h4>
-                      <SVGDonut slices={dynamicScopeData.citySlices} size="w-28 h-28" />
-                      <div className="mt-4 w-full max-w-xs space-y-2">
-                        {dynamicScopeData.citySlices.map(s => (
-                          <div key={s.label} className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 truncate pr-2"><div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div><span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span></div>
-                            <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{dynamicScopeData.citySlices.reduce((a,b)=>a+b.value, 0) > 0 ? ((s.value / dynamicScopeData.citySlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1) : 0}%</span>
-                          </div>
-                        ))}
+
+                    <div className="flex gap-2 sm:gap-4 mb-8 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex-wrap">
+                      <div className="flex-1 text-center min-w-[80px]">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Tk. Promedio</p>
+                        <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatCurrency(chapter3Data.avgTicket)}</p>
+                      </div>
+                      <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                      <div className="flex-1 text-center min-w-[80px]">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Unidades promedio">Ítems Categoría</p>
+                        <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(chapter3Data.avgItems)}</p>
+                      </div>
+                      <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                      <div className="flex-1 text-center min-w-[80px]">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Total de ítems en toda la factura (Canasta)">Total Canasta</p>
+                        <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(chapter3Data.basketSize)}</p>
+                      </div>
+                      <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                      <div className="flex-1 text-center min-w-[80px]">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Hora Compra</p>
+                        <p className="text-base sm:text-lg font-bold dark:text-gray-100">{chapter3Data.peakHour}</p>
+                      </div>
+                      <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
+                      <div className="flex-1 text-center min-w-[80px]">
+                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">Día Compra</p>
+                        <p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400">{chapter3Data.peakDay}</p>
                       </div>
                     </div>
-                  </div>
+
+                    <div className="mb-8 flex-1">
+                      <h4 className="text-md font-bold mb-4 flex items-center gap-2 dark:text-gray-200"><PieChart size={18} className="text-amber-500 dark:text-amber-400"/> Mix de Top 5 Productos (% unidades)</h4>
+                      {chapter3Data.mix.map((item, idx) => (
+                        <ProgressBar 
+                          key={idx} 
+                          label={item.name} 
+                          value={item.value} 
+                          max={Math.max(...chapter3Data.mix.map(i=>i.value))} 
+                          formatValue={(v)=>`${v.toFixed(1)}%`} 
+                          colorClass={CHART_COLORS[idx % CHART_COLORS.length]}
+                        />
+                      ))}
+                    </div>
+
+                    {/* NUEVAS TORTAS: Distribución por Cadena y Ciudad */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-auto border-t border-gray-100 dark:border-gray-700 pt-6 relative">
+                      <button 
+                        onClick={() => {
+                          const rows = [['Tipo', 'Nombre', 'Facturas', '% Participación']];
+                          const chTotal = chapter3Data.chainSlices.reduce((a,b)=>a+b.value, 0);
+                          chapter3Data.chainSlices.forEach(s => rows.push(['Por Cadena', s.label, s.value, ((s.value/chTotal)*100).toFixed(2)]));
+                          const ciTotal = chapter3Data.citySlices.reduce((a,b)=>a+b.value, 0);
+                          chapter3Data.citySlices.forEach(s => rows.push(['Por Ciudad', s.label, s.value, ((s.value/ciTotal)*100).toFixed(2)]));
+                          exportToCSV(`Scope_${selectedScope}_Distribucion`, rows);
+                        }}
+                        className="absolute right-0 -top-10 p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md text-gray-600 dark:text-gray-300 transition-colors" title="Exportar Distribución">
+                        <Download size={16} />
+                      </button>
+                      
+                      <div className="flex flex-col items-center">
+                        <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">¿Dónde se compran? (Por Cadena)</h4>
+                        <SVGDonut slices={chapter3Data.chainSlices} size="w-28 h-28" />
+                        <div className="mt-4 w-full max-w-xs space-y-2">
+                          {chapter3Data.chainSlices.map(s => (
+                            <div key={s.label} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 truncate pr-2">
+                                <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div>
+                                <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
+                              </div>
+                              <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">
+                                {((s.value / chapter3Data.chainSlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col items-center">
+                        <h4 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">¿Dónde se compran? (Por Ciudad)</h4>
+                        <SVGDonut slices={chapter3Data.citySlices} size="w-28 h-28" />
+                        <div className="mt-4 w-full max-w-xs space-y-2">
+                          {chapter3Data.citySlices.map(s => (
+                            <div key={s.label} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 truncate pr-2">
+                                <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div>
+                                <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
+                              </div>
+                              <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">
+                                {((s.value / chapter3Data.citySlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {/* COLUMNA DERECHA: COMPARADOR DE VENTA CRUZADA */}
+                  <Card className="border-t-4 border-t-amber-400 dark:border-t-amber-500 relative flex flex-col h-full bg-gray-50/50 dark:bg-gray-800/30">
+                    <button 
+                      onClick={() => {
+                        const rows = [['Filtro/Producto', 'Categoría Cruzada', '% Afinidad']];
+                        
+                        const exportSide = (sideName, dataList) => {
+                          (dataList || []).forEach(aff => {
+                            rows.push([sideName, aff.name, aff.percentage.toFixed(2)]);
+                          });
+                        };
+                        
+                        exportSide(sideA, sideA === "TODA LA CATEGORÍA" ? chapter3Data.topScopeAffinities : chapter3Data.topProductAffinities[sideA]);
+                        exportSide(sideB, sideB === "TODA LA CATEGORÍA" ? chapter3Data.topScopeAffinities : chapter3Data.topProductAffinities[sideB]);
+                        
+                        exportToCSV(`Scope_${selectedScope}_Comparador`, rows);
+                      }}
+                      className="absolute right-6 top-6 flex items-center gap-2 p-2 bg-amber-50 hover:bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:hover:bg-amber-900/60 dark:text-amber-400 rounded-lg border border-amber-100 dark:border-amber-800/50 transition-colors shadow-sm z-10" title="Exportar Comparativa a CSV">
+                      <Download size={18} /> <span className="text-sm font-semibold hidden sm:inline">Exportar Cruces</span>
+                    </button>
+                    
+                    <div className="mb-6 pr-32">
+                      <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2"><ShoppingCart size={20} className="text-amber-500 dark:text-amber-400"/> Comparador de Venta Cruzada</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Selecciona el Top 5 de productos para comparar sus afinidades.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
+                      
+                      {/* LADO A */}
+                      <div className="flex flex-col bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div className="mb-4 relative">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 block">Analizando (Lado A):</label>
+                          <div className="relative">
+                            <select 
+                              value={sideA} 
+                              onChange={(e) => setSideA(e.target.value)}
+                              className="w-full appearance-none bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-md py-2 pl-3 pr-8 text-sm font-semibold cursor-pointer focus:ring-2 focus:ring-amber-500"
+                            >
+                              <option value="TODA LA CATEGORÍA">TODA LA CATEGORÍA</option>
+                              {chapter3Data.top5Products.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none" />
+                          </div>
+                          <p className="text-[10px] mt-1 text-gray-400 text-right">Facturas base: {sideA === "TODA LA CATEGORÍA" ? chapter3Data.scopeInvoicesCount : chapter3Data.productInvoicesCount[sideA]}</p>
+                        </div>
+                        <div className="flex-1 space-y-4">
+                          {(sideA === "TODA LA CATEGORÍA" ? chapter3Data.topScopeAffinities : chapter3Data.topProductAffinities[sideA])?.map((aff, idx) => (
+                            <ProgressBar key={idx} label={aff.name} value={aff.percentage} max={100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-amber-500 dark:bg-amber-500" className="mb-0"/>
+                          ))}
+                          {((sideA === "TODA LA CATEGORÍA" ? chapter3Data.topScopeAffinities : chapter3Data.topProductAffinities[sideA])?.length === 0) && (
+                            <div className="flex-1 flex items-center justify-center py-8 text-gray-400 text-sm italic">Sin datos de cruce</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* LADO B */}
+                      <div className="flex flex-col bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <div className="mb-4 relative">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1 block">Comparar con (Lado B):</label>
+                          <div className="relative">
+                            <select 
+                              value={sideB} 
+                              onChange={(e) => setSideB(e.target.value)}
+                              className="w-full appearance-none bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-md py-2 pl-3 pr-8 text-sm font-semibold cursor-pointer focus:ring-2 focus:ring-amber-500"
+                            >
+                              <option value="TODA LA CATEGORÍA">TODA LA CATEGORÍA</option>
+                              {chapter3Data.top5Products.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none" />
+                          </div>
+                          <p className="text-[10px] mt-1 text-gray-400 text-right">Facturas base: {sideB === "TODA LA CATEGORÍA" ? chapter3Data.scopeInvoicesCount : chapter3Data.productInvoicesCount[sideB]}</p>
+                        </div>
+                        <div className="flex-1 space-y-4">
+                          {(sideB === "TODA LA CATEGORÍA" ? chapter3Data.topScopeAffinities : chapter3Data.topProductAffinities[sideB])?.map((aff, idx) => (
+                            <ProgressBar key={idx} label={aff.name} value={aff.percentage} max={100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-amber-400 dark:bg-amber-400" className="mb-0"/>
+                          ))}
+                          {((sideB === "TODA LA CATEGORÍA" ? chapter3Data.topScopeAffinities : chapter3Data.topProductAffinities[sideB])?.length === 0) && (
+                            <div className="flex-1 flex items-center justify-center py-8 text-gray-400 text-sm italic">Sin datos de cruce</div>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </Card>
+
+                </div>
+              ) : (
+                <Card className="border-t-4 border-t-amber-400 dark:border-t-amber-500 py-16 flex flex-col items-center justify-center text-center">
+                  <Info size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
+                  <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">Sin datos de {selectedScope}</h3>
+                  <p className="text-gray-500 dark:text-gray-400">El archivo actual no contiene ventas para esta categoría o subcategoría.</p>
                 </Card>
               )}
             </section>

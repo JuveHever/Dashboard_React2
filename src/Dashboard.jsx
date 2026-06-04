@@ -1,4 +1,4 @@
-  import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw, Download, Droplet } from 'lucide-react';
 
 const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_NOMBRE_PROD;CATEGORIA;SUBCATEGORIA;EDFP_VALOR_PROD;CIUDAD
@@ -240,7 +240,7 @@ const matchScope = (row, scope) => {
   if (scope === 'HARINAS') return s.includes('HARINA');
   if (scope === 'PASTA') return s.includes('PASTA');
   if (scope === 'ACEITES') return s.includes('ACEITE');
-  if (scope === 'ESPARCIBLES') return s.includes('ESPARCIBLE');
+  if (scope === 'ESPARCIBLES') return s.includes('MARGARINAS ESPARCIBLES');
   
   return false;
 };

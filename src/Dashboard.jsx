@@ -2,39 +2,43 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Upload, ShoppingCart, TrendingUp, Calendar, Clock, Store, Tag, BarChart, Info, ShoppingBag, Layers, Map, ChefHat, Utensils, PieChart, Filter, RotateCcw, Download } from 'lucide-react';
 
 // --- DATOS DE MUESTRA ---
-const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_NOMBRE_PROD;CATEGORIA;SUBCATEGORIA;EDFP_VALOR_PROD;CIUDAD
-1;2026-02-21;Sábado;15:27:54;$ 19.000;SUPERTIENDAS CAÑAVERAL S.A.S.;PAN GUADALUPE*450g;ALIMENTOS;PANADERIA;$ 19.000;CALI
-2;2026-02-21;Sábado;12:45:00;$ 10.000;SUPERTIENDAS CAÑAVERAL S.A.S.;LECHE ENTERA;LACTEOS;LECHES;$ 10.000;CALI
-3;2026-02-24;Martes;21:02:00;$ 200;D1 SAS;BOLSA RECICLA;BOLSAS PLASTICAS;BOLSAS PLASTICAS;$ 200;BOGOTA
-4;2026-02-24;Martes;21:05:00;$ 8.000;D1 SAS;DETERGENTE;ASEO;CUIDADO ROPA;$ 5.000;BOGOTA
-4;2026-02-24;Martes;21:05:00;$ 8.000;D1 SAS;JABON REY;ASEO;CUIDADO ROPA;$ 3.000;BOGOTA
-5;2026-02-24;Martes;23:15:00;$ 15000;SUPERTIENDAS CAÑAVERAL S.A.S.;HUEVOS AA;ALIMENTOS;HUEVOS;$ 15000;CALI
-6;2026-02-25;Miércoles;14:30:00;$ 57000;MAKRO;CARNE RES;CARNES;RES;$ 45000;MEDELLIN
-6;2026-02-25;Miércoles;14:30:00;$ 57000;MAKRO;ARROZ DIANA;GRANOS;ARROZ;$ 12000;MEDELLIN
-7;2026-02-25;Miércoles;15:00:00;$ 15000;D1 SAS;LECHE ENTERA;LACTEOS;LECHES;$ 10000;BOGOTA
-7;2026-02-25;Miércoles;15:00:00;$ 15000;D1 SAS;DETERGENTE;ASEO;CUIDADO ROPA;$ 5000;BOGOTA
-8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;HARINA DE TRIGO HAZ DE OROS;ALIMENTOS;HARINAS;$ 5000;BOGOTA
-8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;HUEVOS AA;ALIMENTOS;HUEVOS;$ 10000;BOGOTA
-8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;MANTEQUILLA;LACTEOS;MARGARINAS ESPARCIBLES;$ 10000;BOGOTA
-9;2026-02-25;Miércoles;11:00:00;$ 15000;MAKRO;HARINA DE MAIZ PAN;ALIMENTOS;HARINAS;$ 4000;MEDELLIN
-9;2026-02-25;Miércoles;11:00:00;$ 15000;MAKRO;ACEITE PREMIER;ALIMENTOS;ACEITES;$ 11000;MEDELLIN
-10;2026-02-25;Miércoles;12:00:00;$ 12000;SUPERTIENDAS CAÑAVERAL S.A.S.;FIDEOS DORIA;ALIMENTOS;PASTAS;$ 3000;CALI
-10;2026-02-25;Miércoles;12:00:00;$ 12000;SUPERTIENDAS CAÑAVERAL S.A.S.;SALSA DE TOMATE;ALIMENTOS;SALSAS;$ 5000;CALI
-10;2026-02-25;Miércoles;12:00:00;$ 12000;SUPERTIENDAS CAÑAVERAL S.A.S.;QUESO PARMESANO;LACTEOS;QUESOS;$ 4000;CALI
-11;2026-02-26;Jueves;13:00:00;$ 12000;D1 SAS;ESPAGUETI LA MUÑECA;ALIMENTOS;PASTAS;$ 4000;BOGOTA
-11;2026-02-26;Jueves;13:00:00;$ 12000;D1 SAS;CARNE MOLIDA;CARNES;RES;$ 8000;BOGOTA
-12;2026-02-26;Jueves;14:00:00;$ 9000;D1 SAS;AREPARINA;ALIMENTOS;HARINAS;$ 4000;BOGOTA
-12;2026-02-26;Jueves;14:00:00;$ 9000;D1 SAS;QUESO CAMPESINO;LACTEOS;QUESOS;$ 5000;BOGOTA`;
+const sampleCSV = `FACT_CODIGO;FACT_FECHA;DIA;HORA;FACT_VALOR;FACT_NOM_EST;EDFP_NOMBRE_PROD;CATEGORIA;SUBCATEGORIA;SEGMENTO;EDFP_VALOR_PROD;CIUDAD
+1;2026-02-21;Sábado;15:27:54;$ 19.000;SUPERTIENDAS CAÑAVERAL S.A.S.;PAN GUADALUPE*450g;ALIMENTOS;PANADERIA;PAN TAJADO;$ 19.000;CALI
+2;2026-02-21;Sábado;12:45:00;$ 10.000;SUPERTIENDAS CAÑAVERAL S.A.S.;LECHE ENTERA;LACTEOS;LECHES;LECHE LIQUIDA;$ 10.000;CALI
+3;2026-02-24;Martes;21:02:00;$ 200;D1 SAS;BOLSA RECICLA;BOLSAS PLASTICAS;BOLSAS PLASTICAS;;$ 200;BOGOTA
+4;2026-02-24;Martes;21:05:00;$ 8.000;D1 SAS;DETERGENTE;ASEO;CUIDADO ROPA;DETERGENTES;$ 5.000;BOGOTA
+4;2026-02-24;Martes;21:05:00;$ 8.000;D1 SAS;JABON REY;ASEO;CUIDADO ROPA;JABONES;$ 3.000;BOGOTA
+5;2026-02-24;Martes;23:15:00;$ 15000;SUPERTIENDAS CAÑAVERAL S.A.S.;HUEVOS AA;ALIMENTOS;HUEVOS;HUEVO ROJO;$ 15000;CALI
+6;2026-02-25;Miércoles;14:30:00;$ 57000;MAKRO;CARNE RES;CARNES;RES;CORTES RES;$ 45000;MEDELLIN
+6;2026-02-25;Miércoles;14:30:00;$ 57000;MAKRO;ARROZ DIANA;GRANOS;ARROZ;ARROZ BLANCO;$ 12000;MEDELLIN
+7;2026-02-25;Miércoles;15:00:00;$ 15000;D1 SAS;LECHE ENTERA;LACTEOS;LECHES;LECHE LIQUIDA;$ 10000;BOGOTA
+7;2026-02-25;Miércoles;15:00:00;$ 15000;D1 SAS;DETERGENTE;ASEO;CUIDADO ROPA;DETERGENTES;$ 5000;BOGOTA
+8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;HARINA DE TRIGO HAZ DE OROS;ALIMENTOS;HARINAS Y MEZCLAS;HARINAS;$ 5000;BOGOTA
+8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;HUEVOS AA;ALIMENTOS;HUEVOS;HUEVO ROJO;$ 10000;BOGOTA
+8;2026-02-25;Miércoles;10:00:00;$ 25000;D1 SAS;MANTEQUILLA;LACTEOS;MARGARINAS;ESPARCIBLES;$ 10000;BOGOTA
+9;2026-02-25;Miércoles;11:00:00;$ 15000;MAKRO;HARINA DE MAIZ PAN;ALIMENTOS;HARINAS Y MEZCLAS;HARINAS;$ 4000;MEDELLIN
+9;2026-02-25;Miércoles;11:00:00;$ 15000;MAKRO;ACEITE PREMIER;ALIMENTOS;GRASAS;ACEITES;$ 11000;MEDELLIN
+10;2026-02-25;Miércoles;12:00:00;$ 12000;SUPERTIENDAS CAÑAVERAL S.A.S.;FIDEOS DORIA;ALIMENTOS;PASTAS ALIMENTICIAS;PASTAS;$ 3000;CALI
+10;2026-02-25;Miércoles;12:00:00;$ 12000;SUPERTIENDAS CAÑAVERAL S.A.S.;SALSA DE TOMATE;ALIMENTOS;SALSAS;SALSA TOMATE;$ 5000;CALI
+10;2026-02-25;Miércoles;12:00:00;$ 12000;SUPERTIENDAS CAÑAVERAL S.A.S.;QUESO PARMESANO;LACTEOS;QUESOS;QUESO MADURO;$ 4000;CALI
+11;2026-02-26;Jueves;13:00:00;$ 12000;D1 SAS;ESPAGUETI LA MUÑECA;ALIMENTOS;PASTAS ALIMENTICIAS;PASTAS;$ 4000;BOGOTA
+11;2026-02-26;Jueves;13:00:00;$ 12000;D1 SAS;CARNE MOLIDA;CARNES;RES;CORTES RES;$ 8000;BOGOTA
+12;2026-02-26;Jueves;14:00:00;$ 9000;D1 SAS;AREPARINA;ALIMENTOS;HARINAS Y MEZCLAS;HARINAS;$ 4000;BOGOTA
+12;2026-02-26;Jueves;14:00:00;$ 9000;D1 SAS;QUESO CAMPESINO;LACTEOS;QUESOS;QUESO FRESCO;$ 5000;BOGOTA
+13;2026-02-26;Jueves;09:30:00;$ 18000;MAKRO;ACEITE GIRASOL;ALIMENTOS;GRASAS;ACEITES;$ 12000;MEDELLIN
+13;2026-02-26;Jueves;09:30:00;$ 18000;MAKRO;MARGARINA RAMA;LACTEOS;MARGARINAS;ESPARCIBLES;$ 6000;MEDELLIN`;
+
+// Segmentos habilitados para el Capítulo 3 (Scope)
+const SCOPE_SEGMENTS = ['ESPARCIBLES', 'HARINAS', 'ACEITES', 'PASTAS'];
 
 const CHART_COLORS = [
-  'bg-indigo-500', 'bg-fuchsia-500', 'bg-teal-500', 'bg-amber-500', 
-  'bg-rose-500', 'bg-blue-500', 'bg-emerald-500', 'bg-orange-500', 
+  'bg-indigo-500', 'bg-fuchsia-500', 'bg-teal-500', 'bg-amber-500',
+  'bg-rose-500', 'bg-blue-500', 'bg-emerald-500', 'bg-orange-500',
   'bg-cyan-500', 'bg-purple-500', 'bg-pink-500', 'bg-lime-500'
 ];
-
 const HEX_COLORS = [
-  '#6366f1', '#d946ef', '#14b8a6', '#f59e0b', 
-  '#f43f5e', '#3b82f6', '#10b981', '#f97316', 
+  '#6366f1', '#d946ef', '#14b8a6', '#f59e0b',
+  '#f43f5e', '#3b82f6', '#10b981', '#f97316',
   '#06b6d4', '#a855f7', '#ec4899', '#84cc16'
 ];
 
@@ -49,7 +53,7 @@ const ProgressBar = ({ label, value, max, formatValue, colorClass = "bg-blue-500
   return (
     <div className={className}>
       <div className="flex justify-between text-sm mb-1">
-        <span className="font-medium text-gray-700 dark:text-gray-200 truncate pr-4">{label}</span>
+        <span className="font-medium text-gray-700 dark:text-gray-200 truncate pr-4" title={label}>{label}</span>
         <span className="text-gray-500 dark:text-gray-400 font-semibold">
           {formatValue ? formatValue(value) : value}{suffix}
         </span>
@@ -103,14 +107,14 @@ const extractHourNum = (timeStr) => {
   let cleanTime = String(timeStr).trim().toLowerCase().replace(/[\u202F\u00A0]/g, ' ');
   if (!cleanTime.includes(':') && !isNaN(cleanTime)) {
     const floatTime = parseFloat(cleanTime);
-    if (floatTime > 0 && floatTime <= 1) return Math.floor(floatTime * 24) % 24; 
+    if (floatTime > 0 && floatTime <= 1) return Math.floor(floatTime * 24) % 24;
   }
   const match = cleanTime.match(/(\d{1,2}):/);
   if (!match) return -1;
   let hour = parseInt(match[1], 10);
   if (cleanTime.includes('p') && hour < 12) hour += 12;
   if (cleanTime.includes('a') && hour === 12) hour = 0;
-  return (hour >= 0 && hour <= 23) ? hour : -1; 
+  return (hour >= 0 && hour <= 23) ? hour : -1;
 };
 
 const formatHourAmPm = (h) => {
@@ -131,18 +135,18 @@ const getJornada = (hour) => {
   if (hour >= 6 && hour < 12) return "Mañana";
   if (hour >= 12 && hour < 18) return "Tarde";
   if (hour >= 18 && hour < 22) return "Noche";
-  return "Madrugada"; 
+  return "Madrugada";
 };
 
 const parseCSV = (text) => {
   const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
   if (lines.length === 0) return [];
-  const delimiter = lines[0].includes(';') ? ';' : ','; 
+  const delimiter = lines[0].includes(';') ? ';' : ',';
   const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
   const data = [];
   for (let i = 1; i < lines.length; i++) {
     const currentLine = lines[i].split(delimiter);
-    if (currentLine.length < headers.length) continue; 
+    if (currentLine.length < headers.length) continue;
     const obj = {};
     headers.forEach((header, index) => {
       obj[header] = currentLine[index] ? currentLine[index].trim().replace(/^"|"$/g, '') : '';
@@ -156,83 +160,189 @@ const analyzeData = (data) => {
   const chains = new Set();
   const uniqueCitiesSet = new Set();
   const uniqueCategoriesSet = new Set();
-  const cleanRows = []; 
+  const uniqueSubcatsSet = new Set();
+  const uniqueSegmentsSet = new Set();
+  const cleanRows = [];
 
   data.forEach(row => {
-    const rawCod = row.FACT_CODIGO || row.FACT_NROFACTURA; 
+    const rawCod = row.FACT_CODIGO || row.FACT_NROFACTURA;
     const chain = row.FACT_NOM_EST || 'Sin Cadena Identificada';
     const prod = row.EDFP_NOMBRE_PROD || row.Producto;
     const cat = row.CATEGORIA || row.categoria || 'Sin Canasta';
-    const subcat = row.SUBCATEGORIA || row.subcategoria || ''; 
+    const subcat = row.SUBCATEGORIA || row.subcategoria || '';
+    const seg = (row.SEGMENTO || row.segmento || '').toUpperCase().trim();
     const date = row.FACT_FECHA || row.FECHA;
     const time = row.HORA;
     const city = (row.CIUDAD || row.ciudad || 'Sin Ciudad').toUpperCase();
-    
-    const invoiceVal = cleanNumber(row.FACT_VALOR); 
+
+    const invoiceVal = cleanNumber(row.FACT_VALOR);
     const prodVal = cleanNumber(row.EDFP_VALOR_PROD || row.VALOR_PRODUCTO || 0);
-    const dayRaw = row.DIA || row.dia; 
+    const dayRaw = row.DIA || row.dia;
 
     if (!rawCod || !prod) return;
-    const cod = `${chain}_${rawCod}`; 
+    const cod = `${chain}_${rawCod}`;
     const subcatClean = subcat || 'Sin Categoría';
-    
-    cleanRows.push({...row, CIUDAD_CLEAN: city, CAT_CLEAN: cat, SUBCAT_CLEAN: subcatClean, COD_UNICO: cod, CHAIN_CLEAN: chain, PROD_CLEAN: prod, VAL_CLEAN: invoiceVal, PROD_VAL_CLEAN: prodVal, TIME_CLEAN: time, DATE_CLEAN: date, DAY_CLEAN: dayRaw}); 
-    
+
+    cleanRows.push({
+      ...row,
+      CIUDAD_CLEAN: city,
+      CAT_CLEAN: cat,
+      SUBCAT_CLEAN: subcatClean,
+      SEG_CLEAN: seg,
+      COD_UNICO: cod,
+      CHAIN_CLEAN: chain,
+      PROD_CLEAN: prod,
+      VAL_CLEAN: invoiceVal,
+      PROD_VAL_CLEAN: prodVal,
+      TIME_CLEAN: time,
+      DATE_CLEAN: date,
+      DAY_CLEAN: dayRaw
+    });
+
     chains.add(chain);
     uniqueCitiesSet.add(city);
     uniqueCategoriesSet.add(cat);
+    uniqueSubcatsSet.add(subcatClean);
+    if (seg) uniqueSegmentsSet.add(seg);
   });
 
   return {
     chainList: Array.from(chains).sort(),
     cityList: Array.from(uniqueCitiesSet).sort(),
     catList: Array.from(uniqueCategoriesSet).sort(),
+    subcatList: Array.from(uniqueSubcatsSet).sort(),
+    segList: Array.from(uniqueSegmentsSet).sort(),
     cleanRows
   };
 };
 
-const matchScope = (row, scope) => {
-  const s = (row.SUBCAT_CLEAN || '').toUpperCase();
-  
-  // La búsqueda es estricta solo a la columna SUBCATEGORIA
-  if (scope === 'HARINAS') return s.includes('HARINA');
-  if (scope === 'PASTA') return s.includes('PASTA');
-  if (scope === 'ACEITES') return s.includes('ACEITE');
-  if (scope === 'ESPARCIBLES') return s.includes('MARGARINAS ESPARCIBLES');
-  
-  return false;
+// --- SCOPE: ahora la búsqueda es estricta sobre la columna SEGMENTO ---
+const matchScope = (row, scope) => (row.SEG_CLEAN || '').toUpperCase().trim() === scope;
+
+// Etiqueta de venta cruzada: SUBCATEGORIA + SEGMENTO
+const getCrossLabel = (r) => {
+  const sub = r.SUBCAT_CLEAN || 'Sin Categoría';
+  const seg = (r.SEG_CLEAN || '').trim();
+  return seg ? `${sub} › ${seg}` : sub;
+};
+
+// Constructor genérico del mix de promedio de unidades por cadena (agrupador configurable)
+const buildAvgUnitsMix = (filteredRows, getGroup) => {
+  const xTotals = {};
+  const xSegmentCounts = {};
+  const globalSegmentCount = {};
+  const chainSegmentInvoices = {};
+  const globalSegmentInvoices = {};
+
+  filteredRows.forEach(r => {
+    const xCol = r.CHAIN_CLEAN || 'Sin Cadena';
+    const seg = getGroup(r);
+    const val = 1;
+
+    xTotals[xCol] = (xTotals[xCol] || 0) + val;
+    if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
+    xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
+    globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
+
+    if (!chainSegmentInvoices[xCol]) chainSegmentInvoices[xCol] = {};
+    if (!chainSegmentInvoices[xCol][seg]) chainSegmentInvoices[xCol][seg] = new Set();
+    if (r.COD_UNICO) chainSegmentInvoices[xCol][seg].add(r.COD_UNICO);
+
+    if (!globalSegmentInvoices[seg]) globalSegmentInvoices[seg] = new Set();
+    if (r.COD_UNICO) globalSegmentInvoices[seg].add(r.COD_UNICO);
+  });
+
+  const topSegments = Object.entries(globalSegmentCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]);
+  const xList = Object.keys(xTotals).sort();
+
+  const chartColumns = xList.map(xLabel => {
+    const total = xTotals[xLabel];
+    const blocks = [];
+    let remaining = 100;
+    let sumVal = 0;
+
+    topSegments.forEach((seg, idx) => {
+      const count = xSegmentCounts[xLabel][seg] || 0;
+      const perc = total > 0 ? (count / total) * 100 : 0;
+      const invCount = chainSegmentInvoices[xLabel]?.[seg]?.size || 1;
+      blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / invCount });
+      remaining -= perc;
+      sumVal += count;
+    });
+
+    const otrosVal = total - sumVal;
+    if (remaining > 0.1 && otrosVal > 0) {
+      let otrosInvoicesSet = new Set();
+      Object.keys(chainSegmentInvoices[xLabel] || {}).forEach(s => {
+        if (!topSegments.includes(s)) {
+          chainSegmentInvoices[xLabel][s].forEach(id => otrosInvoicesSet.add(id));
+        }
+      });
+      const otrosInvCount = otrosInvoicesSet.size || 1;
+      blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal / otrosInvCount });
+    }
+    return { label: xLabel, total, blocks };
+  });
+
+  const generalTotal = Object.values(globalSegmentCount).reduce((sum, val) => sum + val, 0);
+  if (generalTotal > 0) {
+    const generalBlocks = [];
+    let remainingGen = 100;
+    let sumValGen = 0;
+    topSegments.forEach((seg, idx) => {
+      const count = globalSegmentCount[seg] || 0;
+      const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
+      const genInvCount = globalSegmentInvoices[seg]?.size || 1;
+      generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / genInvCount });
+      remainingGen -= perc;
+      sumValGen += count;
+    });
+    const otrosGen = generalTotal - sumValGen;
+    if (remainingGen > 0.1 && otrosGen > 0) {
+      let otrosGenInvoicesSet = new Set();
+      Object.keys(globalSegmentInvoices).forEach(s => {
+        if (!topSegments.includes(s)) {
+          globalSegmentInvoices[s].forEach(id => otrosGenInvoicesSet.add(id));
+        }
+      });
+      const otrosGenInvCount = otrosGenInvoicesSet.size || 1;
+      generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / otrosGenInvCount });
+    }
+    chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
+  }
+
+  return { topSegments, chartColumns };
 };
 
 const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, filterLabel, filterValue, setFilterValue, filterOptions, defaultFilterText, valueSuffix = "unid.", isCurrency = false, hideYAxis = false, showAverageInsteadOfPercentage = false }) => {
-  
+
   const handleDownloadCSV = () => {
     if (!chartData || !chartData.chartColumns) return;
-    
+
     const headers = ['Segmento Principal', 'Total General'];
     const allInnerSegments = new Set();
-    
+
     chartData.chartColumns.forEach(col => {
       col.blocks.forEach(b => allInnerSegments.add(b.name));
     });
-    
+
     const segmentArray = Array.from(allInnerSegments);
     headers.push(...segmentArray);
-
     let csvContent = headers.join(';') + '\n';
 
     chartData.chartColumns.forEach(col => {
       const row = [col.label, col.total];
       const blockMap = {};
-      
-      col.blocks.forEach(b => { 
-        blockMap[b.name] = b.val; 
+
+      col.blocks.forEach(b => {
+        blockMap[b.name] = b.val;
       });
 
       segmentArray.forEach(seg => {
         const val = blockMap[seg] !== undefined ? blockMap[seg] : 0;
         row.push(val);
       });
-      
+
       csvContent += row.join(';') + '\n';
     });
 
@@ -251,18 +361,18 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
     <Card className="flex flex-col h-full relative group">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
         <div>
-          <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><Icon className="text-indigo-500 dark:text-indigo-400"/> {title}</h3>
+          <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><Icon className="text-indigo-500 dark:text-indigo-400" /> {title}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           {filterLabel && (
             <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg border border-gray-200 dark:border-gray-600 max-w-full sm:max-w-xs">
               <Filter size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
               <label className="text-xs font-medium text-gray-500 dark:text-gray-300 flex-shrink-0">{filterLabel}:</label>
-              <select 
-                value={filterValue} 
-                onChange={(e) => setFilterValue(e.target.value)} 
+              <select
+                value={filterValue}
+                onChange={(e) => setFilterValue(e.target.value)}
                 className="bg-white dark:bg-gray-800 border-none text-gray-900 dark:text-white rounded focus:ring-0 text-sm font-bold cursor-pointer w-full truncate shadow-sm py-1 pl-1 pr-6"
               >
                 <option value="TODAS">{defaultFilterText}</option>
@@ -270,9 +380,9 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
               </select>
             </div>
           )}
-          
+
           {chartData && chartData.chartColumns.length > 0 && (
-            <button 
+            <button
               onClick={handleDownloadCSV}
               className="flex items-center justify-center p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/60 border border-indigo-100 dark:border-indigo-800/50 transition-colors shadow-sm flex-shrink-0"
               title="Descargar datos en Excel (CSV)"
@@ -299,36 +409,33 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
               </div>
             )}
           </div>
-
           <div className="flex flex-1 w-full gap-2 relative">
             {!hideYAxis && (
               <div className="flex flex-col justify-between items-end pb-8 pr-2 border-r border-gray-200 dark:border-gray-700 w-10 sm:w-12 flex-shrink-0 relative z-10">
-                 {['100%', '75%', '50%', '25%', '0%'].map((tick, i) => (
-                    <span key={i} className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap transform translate-y-1/2">{tick}</span>
-                 ))}
+                {['100%', '75%', '50%', '25%', '0%'].map((tick, i) => (
+                  <span key={i} className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap transform translate-y-1/2">{tick}</span>
+                ))}
               </div>
             )}
-
             <div className="flex-1 flex flex-col min-h-[280px]">
               <div className="flex items-end justify-around flex-1 w-full relative">
                 <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                    {[...Array(5)].map((_, i) => <div key={i} className="w-full border-t border-gray-100 dark:border-gray-800/50"></div>)}
+                  {[...Array(5)].map((_, i) => <div key={i} className="w-full border-t border-gray-100 dark:border-gray-800/50"></div>)}
                 </div>
-
                 {chartData.chartColumns.map(col => (
                   <div key={col.label} className={`flex-1 flex flex-col items-center justify-end h-full z-10 px-1 sm:px-2 min-w-0 ${col.isGeneral ? 'border-l-2 border-dashed border-indigo-200 dark:border-indigo-800/50 pl-2 sm:pl-3 ml-1 sm:ml-2 relative' : ''}`}>
                     {col.isGeneral && <span className="absolute -top-7 text-[9px] sm:text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded shadow-sm">Global</span>}
                     <div className={`w-full max-w-[60px] flex flex-col-reverse h-full bg-gray-100 dark:bg-gray-700/50 rounded-t-sm overflow-hidden shadow-inner group ${col.isGeneral ? 'ring-2 ring-indigo-500/30 dark:ring-indigo-400/30' : ''}`}>
                       {col.blocks.map(b => b.perc > 0 && (
-                        <div 
-                          key={b.name} 
-                          style={{ height: `${b.perc}%` }} 
-                          className={`${b.color} w-full flex items-center justify-center transition-all hover:opacity-90 cursor-crosshair border-b border-white/20 dark:border-black/20 last:border-b-0`} 
+                        <div
+                          key={b.name}
+                          style={{ height: `${b.perc}%` }}
+                          className={`${b.color} w-full flex items-center justify-center transition-all hover:opacity-90 cursor-crosshair border-b border-white/20 dark:border-black/20 last:border-b-0`}
                           title={`${col.label}\n${b.name}\n${b.perc.toFixed(1)}% | ${showAverageInsteadOfPercentage ? 'Promedio: ' : 'Total: '}${isCurrency ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(b.val) : Number(b.val).toFixed(1) + ' ' + valueSuffix}`}
                         >
                           {b.perc > 8 && <span className="text-[9px] sm:text-[10px] text-white font-bold tracking-tight px-1 truncate drop-shadow-md">
-                            {showAverageInsteadOfPercentage 
-                              ? (isCurrency ? new Intl.NumberFormat('es-CO', { notation: 'compact', style: 'currency', currency: 'COP', maximumFractionDigits: 1 }).format(b.val) : Number(b.val).toFixed(1)) 
+                            {showAverageInsteadOfPercentage
+                              ? (isCurrency ? new Intl.NumberFormat('es-CO', { notation: 'compact', style: 'currency', currency: 'COP', maximumFractionDigits: 1 }).format(b.val) : Number(b.val).toFixed(1))
                               : `${b.perc.toFixed(0)}%`}
                           </span>}
                         </div>
@@ -337,7 +444,7 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
                   </div>
                 ))}
               </div>
-              
+
               <div className="flex justify-around w-full mt-3 h-10">
                 {chartData.chartColumns.map(col => (
                   <div key={col.label} className={`flex-1 flex flex-col items-center justify-start text-center px-1 sm:px-2 min-w-0 ${col.isGeneral ? 'border-l-2 border-transparent pl-2 sm:pl-3 ml-1 sm:ml-2' : ''}`}>
@@ -359,25 +466,29 @@ const PercentageStackedBarChart = ({ chartData, title, description, icon: Icon, 
 
 export default function App() {
   const [data, setData] = useState(null);
-  
+
   // Filtros del Capítulo 1
   const [selectedChain, setSelectedChain] = useState("TODAS");
   const [selectedCity, setSelectedCity] = useState("TODAS");
   const [selectedCategory, setSelectedCategory] = useState("TODAS");
-  
-  // Filtros del Capítulo 2
-  const [filterCityForChart1, setFilterCityForChart1] = useState("TODAS"); 
-  const [filterChainForChart2, setFilterChainForChart2] = useState("TODAS"); 
-  const [filterCityForPies, setFilterCityForPies] = useState("TODAS"); 
 
-  // Filtros del Capítulo 3 (Scope Dinámico)
+  // Filtros del Capítulo 2
+  const [filterCityForChart1, setFilterCityForChart1] = useState("TODAS");
+  const [filterChainForChart2, setFilterChainForChart2] = useState("TODAS");
+  const [filterCityForPies, setFilterCityForPies] = useState("TODAS");
+
+  // Filtros del Capítulo 3 (Scope Dinámico por SEGMENTO)
   const [selectedScopeTab, setSelectedScopeTab] = useState('HARINAS');
   const [scopeProd1, setScopeProd1] = useState('TODOS');
   const [scopeProd2, setScopeProd2] = useState('TODOS');
+  const [scopeSub1, setScopeSub1] = useState('TODAS');
+  const [scopeSub2, setScopeSub2] = useState('TODAS');
 
   useEffect(() => {
     setScopeProd1('TODOS');
     setScopeProd2('TODOS');
+    setScopeSub1('TODAS');
+    setScopeSub2('TODAS');
   }, [selectedScopeTab]);
 
   const [fileName, setFileName] = useState("Datos de Muestra");
@@ -406,7 +517,7 @@ export default function App() {
     if (!file) return;
     setFileName(file.name);
     setError("");
-    setData(null); 
+    setData(null);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -421,17 +532,29 @@ export default function App() {
         setFilterCityForPies("TODAS");
         setSelectedScopeTab('HARINAS');
       } catch (err) {
-        setError("Error al leer el archivo. Asegúrate de que sea un CSV válido.");
+        setError("Error al leer el archivo. Asegúrate de que sea un CSV válido y que incluya la columna SEGMENTO.");
         console.error(err);
       }
     };
     reader.readAsText(file);
   };
 
+  // Segmentos disponibles para el scope (los 4 definidos, presentes en el archivo)
+  const scopeOptions = useMemo(() => {
+    if (!data) return SCOPE_SEGMENTS;
+    const present = SCOPE_SEGMENTS.filter(s => data.segList.includes(s));
+    return present.length > 0 ? present : SCOPE_SEGMENTS;
+  }, [data]);
+
+  useEffect(() => {
+    if (scopeOptions.length > 0 && !scopeOptions.includes(selectedScopeTab)) {
+      setSelectedScopeTab(scopeOptions[0]);
+    }
+  }, [scopeOptions, selectedScopeTab]);
+
   const chapter1Stats = useMemo(() => {
     if (!data) return null;
     let filteredRows = data.cleanRows;
-
     if (selectedChain !== "TODAS") filteredRows = filteredRows.filter(r => r.CHAIN_CLEAN === selectedChain);
     if (selectedCity !== "TODAS") filteredRows = filteredRows.filter(r => r.CIUDAD_CLEAN === selectedCity);
     if (selectedCategory !== "TODAS") filteredRows = filteredRows.filter(r => r.CAT_CLEAN === selectedCategory);
@@ -440,28 +563,25 @@ export default function App() {
     const invoiceHourMap = {};
     const dayTransactions = {};
     const hourTransactions = {};
-
     let totalRevenue = 0;
     let totalItems = 0;
     const categoriesCount = {};
     const subcategoriesCount = {};
     const productsCount = {};
     const catProducts = {};
-    const invoiceSubcats = {}; 
+    const invoiceSubcats = {};
 
     filteredRows.forEach(row => {
       const cod = row.COD_UNICO;
       const cat = row.CAT_CLEAN;
       const subcat = row.SUBCAT_CLEAN || 'Sin Categoría';
       const prod = row.PROD_CLEAN;
-      
+
       categoriesCount[cat] = (categoriesCount[cat] || 0) + 1;
       subcategoriesCount[subcat] = (subcategoriesCount[subcat] || 0) + 1;
       productsCount[prod] = (productsCount[prod] || 0) + 1;
-
       if (!catProducts[cat]) catProducts[cat] = {};
       catProducts[cat][prod] = (catProducts[cat][prod] || 0) + 1;
-
       totalItems += 1;
 
       if (!invoiceSubcats[cod]) invoiceSubcats[cod] = new Set();
@@ -470,42 +590,39 @@ export default function App() {
       if (!invoiceTotals.hasOwnProperty(cod)) {
         invoiceTotals[cod] = row.VAL_CLEAN;
         totalRevenue += row.VAL_CLEAN;
-
         let dayStr = "N/A";
         if (row.DAY_CLEAN) {
-            dayStr = row.DAY_CLEAN.trim().charAt(0).toUpperCase() + row.DAY_CLEAN.trim().slice(1).toLowerCase();
+          dayStr = row.DAY_CLEAN.trim().charAt(0).toUpperCase() + row.DAY_CLEAN.trim().slice(1).toLowerCase();
         } else if (row.DATE_CLEAN) {
-            const d = new Date(row.DATE_CLEAN);
-            if(!isNaN(d)) dayStr = new Intl.DateTimeFormat('es-CO', {weekday: 'long'}).format(d);
-            if(dayStr) dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
+          const d = new Date(row.DATE_CLEAN);
+          if (!isNaN(d)) dayStr = new Intl.DateTimeFormat('es-CO', { weekday: 'long' }).format(d);
+          if (dayStr) dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
         }
-
         if (dayStr !== "N/A") dayTransactions[dayStr] = (dayTransactions[dayStr] || 0) + 1;
-
         if (row.TIME_CLEAN) {
-            const hour = extractHourNum(row.TIME_CLEAN);
-            if (hour !== -1) {
-              hourTransactions[hour] = (hourTransactions[hour] || 0) + 1;
-              invoiceHourMap[cod] = hour;
-            }
+          const hour = extractHourNum(row.TIME_CLEAN);
+          if (hour !== -1) {
+            hourTransactions[hour] = (hourTransactions[hour] || 0) + 1;
+            invoiceHourMap[cod] = hour;
+          }
         }
       }
     });
 
     const totalInvoices = Object.keys(invoiceTotals).length;
-    
-    const topDayE = Object.entries(dayTransactions).sort((a,b) => b[1] - a[1])[0] || ["N/A", 0];
-    const topHrE = Object.entries(hourTransactions).sort((a,b) => b[1] - a[1])[0];
+
+    const topDayE = Object.entries(dayTransactions).sort((a, b) => b[1] - a[1])[0] || ["N/A", 0];
+    const topHrE = Object.entries(hourTransactions).sort((a, b) => b[1] - a[1])[0];
     const topHrN = topHrE ? parseInt(topHrE[0]) : -1;
 
     const hStats = {};
     Object.keys(invoiceTotals).forEach(cod => {
-        const h = invoiceHourMap[cod];
-        if(h !== undefined && h !== -1) {
-            if(!hStats[h]) hStats[h] = { sum: 0, count: 0 };
-            hStats[h].sum += invoiceTotals[cod];
-            hStats[h].count += 1;
-        }
+      const h = invoiceHourMap[cod];
+      if (h !== undefined && h !== -1) {
+        if (!hStats[h]) hStats[h] = { sum: 0, count: 0 };
+        hStats[h].sum += invoiceTotals[cod];
+        hStats[h].count += 1;
+      }
     });
 
     const topHrStats = hStats[topHrN];
@@ -514,34 +631,32 @@ export default function App() {
     let maxVolumeH = -1;
     let maxVolumeSum = 0;
     Object.entries(hStats).forEach(([h, s]) => {
-        if (s.sum > maxVolumeSum) { maxVolumeSum = s.sum; maxVolumeH = parseInt(h); }
+      if (s.sum > maxVolumeSum) { maxVolumeSum = s.sum; maxVolumeH = parseInt(h); }
     });
-
     const avgOfMaxVolumeHour = maxVolumeH !== -1 && hStats[maxVolumeH].count > 0 ? (hStats[maxVolumeH].sum / hStats[maxVolumeH].count) : 0;
 
     const kpis = {
-        topDay: topDayE[0], topDayCount: topDayE[1],
-        topTxHourRange: getHourRange(topHrN), topTxJornada: getJornada(topHrN), topTxHourCount: topHrE ? topHrE[1] : 0, topTxHourAvgVal: topHrAvgVal,
-        topAvgHourRange: getHourRange(maxVolumeH), topAvgJornada: getJornada(maxVolumeH), topAvgHourVal: avgOfMaxVolumeHour
+      topDay: topDayE[0], topDayCount: topDayE[1],
+      topTxHourRange: getHourRange(topHrN), topTxJornada: getJornada(topHrN), topTxHourCount: topHrE ? topHrE[1] : 0, topTxHourAvgVal: topHrAvgVal,
+      topAvgHourRange: getHourRange(maxVolumeH), topAvgJornada: getJornada(maxVolumeH), topAvgHourVal: avgOfMaxVolumeHour
     };
 
-    const topCategories = Object.entries(categoriesCount).sort((a,b)=>b[1]-a[1]).slice(0, 5).map(([name, value]) => {
-        const topProds = Object.entries(catProducts[name] || {}).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(x => ({name: x[0], val: x[1]}));
-        return { name, value, percentage: totalItems > 0 ? (value / totalItems) * 100 : 0, topProds };
+    const topCategories = Object.entries(categoriesCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => {
+      const topProds = Object.entries(catProducts[name] || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => ({ name: x[0], val: x[1] }));
+      return { name, value, percentage: totalItems > 0 ? (value / totalItems) * 100 : 0, topProds };
     });
 
-    const topProducts = Object.entries(productsCount).sort((a,b)=>b[1]-a[1]).slice(0, 20).map(([name, value]) => ({
-        name, value, percentage: totalItems > 0 ? (value / totalItems) * 100 : 0
+    const topProducts = Object.entries(productsCount).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([name, value]) => ({
+      name, value, percentage: totalItems > 0 ? (value / totalItems) * 100 : 0
     }));
 
     const topSubcategories = Object.entries(subcategoriesCount)
       .map(([name, count]) => ({ name, count, percentage: totalItems > 0 ? (count / totalItems) * 100 : 0 }))
-      .sort((a,b) => b.percentage - a.percentage).slice(0, 20);
+      .sort((a, b) => b.percentage - a.percentage).slice(0, 20);
 
     topSubcategories.forEach(topSub => {
       const affinityCount = {};
       let totalInvoicesWithThisSub = 0;
-
       Object.values(invoiceSubcats).forEach(subSet => {
         if (subSet.has(topSub.name)) {
           totalInvoicesWithThisSub++;
@@ -552,7 +667,6 @@ export default function App() {
           });
         }
       });
-
       topSub.top10Affinities = Object.entries(affinityCount)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 10)
@@ -582,19 +696,18 @@ export default function App() {
     if (selectedCategory !== "TODAS") filteredRows = filteredRows.filter(r => r.CAT_CLEAN === selectedCategory);
 
     const dayOrder = { 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 7 };
-    const xTotals = {}; 
-    const xSegmentTotals = {}; 
-    const globalSegmentTotals = {}; 
+    const xTotals = {};
+    const xSegmentTotals = {};
+    const globalSegmentTotals = {};
     const invoiceTracker = {};
 
     filteredRows.forEach(r => {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
-        invoiceTracker[cod] = true; 
-        
+        invoiceTracker[cod] = true;
+
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
-
         if (day === 'N/A') return;
 
         xTotals[chain] = (xTotals[chain] || 0) + 1;
@@ -604,7 +717,7 @@ export default function App() {
       }
     });
 
-    const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
+    const topSegments = Object.keys(globalSegmentTotals).sort((a, b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
 
     const chartColumns = xList.map(chain => {
@@ -648,38 +761,35 @@ export default function App() {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
         invoiceTracker[cod] = true;
-        
+
         const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
-
         if (hourNum === -1) return;
-
         const hourLabel = getHourRange(hourNum).replace(' - ', '-');
 
         xTotals[chain] = (xTotals[chain] || 0) + 1;
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][hourLabel] = (xSegmentTotals[chain][hourLabel] || 0) + 1;
-        
+
         if (!globalSegmentTotals[hourNum]) globalSegmentTotals[hourNum] = { label: hourLabel, val: 0 };
         globalSegmentTotals[hourNum].val += 1;
       }
     });
 
     const topHourNums = Object.entries(globalSegmentTotals)
-      .sort((a,b) => b[1].val - a[1].val)
+      .sort((a, b) => b[1].val - a[1].val)
       .slice(0, 10)
       .map(x => parseInt(x[0]))
       .sort((a, b) => a - b);
-
     const topSegments = topHourNums.map(h => globalSegmentTotals[h].label);
-    const xList = Object.keys(xTotals).sort(); 
+    const xList = Object.keys(xTotals).sort();
 
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-      
+
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
@@ -687,10 +797,10 @@ export default function App() {
         remaining -= perc;
         sumVal += val;
       });
-      
+
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
-      
+
       return { label: chain, total, blocks };
     });
 
@@ -725,20 +835,19 @@ export default function App() {
     if (selectedCategory !== "TODAS") filteredRows = filteredRows.filter(r => r.CAT_CLEAN === selectedCategory);
 
     const dayOrder = { 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6, 'Domingo': 7 };
-    const xTotals = {}; 
-    const xSegmentTotals = {}; 
-    const globalSegmentTotals = {}; 
+    const xTotals = {};
+    const xSegmentTotals = {};
+    const globalSegmentTotals = {};
     const invoiceTracker = {};
 
     filteredRows.forEach(r => {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
-        invoiceTracker[cod] = true; 
-        
+        invoiceTracker[cod] = true;
+
         const day = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         const val = r.VAL_CLEAN || 0;
-
         if (day === 'N/A') return;
 
         xTotals[chain] = (xTotals[chain] || 0) + val;
@@ -748,7 +857,7 @@ export default function App() {
       }
     });
 
-    const topSegments = Object.keys(globalSegmentTotals).sort((a,b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
+    const topSegments = Object.keys(globalSegmentTotals).sort((a, b) => (dayOrder[a] || 99) - (dayOrder[b] || 99));
     const xList = Object.keys(xTotals).sort();
 
     const chartColumns = xList.map(chain => {
@@ -792,38 +901,36 @@ export default function App() {
       const cod = r.COD_UNICO;
       if (!invoiceTracker[cod]) {
         invoiceTracker[cod] = true;
-        
+
         const hourNum = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
         const chain = r.CHAIN_CLEAN || 'Sin Cadena';
         const val = r.VAL_CLEAN || 0;
-
         if (hourNum === -1) return;
-
         const hourLabel = getHourRange(hourNum).replace(' - ', '-');
 
         xTotals[chain] = (xTotals[chain] || 0) + val;
         if (!xSegmentTotals[chain]) xSegmentTotals[chain] = {};
         xSegmentTotals[chain][hourLabel] = (xSegmentTotals[chain][hourLabel] || 0) + val;
+
         if (!globalSegmentTotals[hourNum]) globalSegmentTotals[hourNum] = { label: hourLabel, val: 0 };
         globalSegmentTotals[hourNum].val += val;
       }
     });
 
     const topHourNums = Object.entries(globalSegmentTotals)
-      .sort((a,b) => b[1].val - a[1].val)
+      .sort((a, b) => b[1].val - a[1].val)
       .slice(0, 10)
       .map(x => parseInt(x[0]))
       .sort((a, b) => a - b);
-
     const topSegments = topHourNums.map(h => globalSegmentTotals[h].label);
-    const xList = Object.keys(xTotals).sort(); 
+    const xList = Object.keys(xTotals).sort();
 
     const chartColumns = xList.map(chain => {
       const total = xTotals[chain];
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-      
+
       topSegments.forEach((seg, idx) => {
         const val = xSegmentTotals[chain][seg] || 0;
         const perc = total > 0 ? (val / total) * 100 : 0;
@@ -831,10 +938,10 @@ export default function App() {
         remaining -= perc;
         sumVal += val;
       });
-      
+
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
-      
+
       return { label: chain, total, blocks };
     });
 
@@ -869,15 +976,14 @@ export default function App() {
     const xTotals = {};
     const xSegmentCounts = {};
     const globalSegmentCount = {};
-    
     const chainSegmentItems = {};
     const globalSegmentItems = {};
 
     filteredRows.forEach(r => {
-      const xCol = r.CHAIN_CLEAN || 'Sin Cadena'; 
-      const seg = r.CAT_CLEAN || 'Sin Canasta'; 
-      const val = r.PROD_VAL_CLEAN || 0; 
-      
+      const xCol = r.CHAIN_CLEAN || 'Sin Cadena';
+      const seg = r.CAT_CLEAN || 'Sin Canasta';
+      const val = r.PROD_VAL_CLEAN || 0;
+
       xTotals[xCol] = (xTotals[xCol] || 0) + val;
       if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
       xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
@@ -888,7 +994,7 @@ export default function App() {
       globalSegmentItems[seg] = (globalSegmentItems[seg] || 0) + 1;
     });
 
-    const topSegments = Object.entries(globalSegmentCount).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x=>x[0]);
+    const topSegments = Object.entries(globalSegmentCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]);
     const xList = Object.keys(xTotals).sort();
 
     const chartColumns = xList.map(xLabel => {
@@ -896,24 +1002,22 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
-        const itemCount = chainSegmentItems[xLabel]?.[seg] || 1; 
-        const avg = count / itemCount; 
+        const itemCount = chainSegmentItems[xLabel]?.[seg] || 1;
+        const avg = count / itemCount;
         blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
         remaining -= perc;
         sumVal += count;
       });
-
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) {
         let otrosItemCount = 0;
         Object.keys(chainSegmentItems[xLabel] || {}).forEach(s => {
-            if (!topSegments.includes(s)) {
-                otrosItemCount += chainSegmentItems[xLabel][s];
-            }
+          if (!topSegments.includes(s)) {
+            otrosItemCount += chainSegmentItems[xLabel][s];
+          }
         });
         const avgOtros = otrosVal / (otrosItemCount || 1);
         blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: avgOtros });
@@ -926,7 +1030,7 @@ export default function App() {
       const generalBlocks = [];
       let remainingGen = 100;
       let sumValGen = 0;
-      
+
       topSegments.forEach((seg, idx) => {
         const count = globalSegmentCount[seg] || 0;
         const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
@@ -937,13 +1041,13 @@ export default function App() {
       });
       const otrosGen = generalTotal - sumValGen;
       if (remainingGen > 0.1 && otrosGen > 0) {
-         let otrosGenItemCount = 0;
-         Object.keys(globalSegmentItems).forEach(s => {
-             if (!topSegments.includes(s)) {
-                 otrosGenItemCount += globalSegmentItems[s];
-             }
-         });
-         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / (otrosGenItemCount || 1) });
+        let otrosGenItemCount = 0;
+        Object.keys(globalSegmentItems).forEach(s => {
+          if (!topSegments.includes(s)) {
+            otrosGenItemCount += globalSegmentItems[s];
+          }
+        });
+        generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / (otrosGenItemCount || 1) });
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
@@ -951,97 +1055,20 @@ export default function App() {
     return { topSegments, chartColumns };
   }, [data, filterCityForChart1]);
 
+  // Mix promedio de unidades agrupado por CANASTA (columna CATEGORIA)
   const chart1DataUnits = useMemo(() => {
     if (!data) return null;
     let filteredRows = data.cleanRows;
     if (filterCityForChart1 !== "TODAS") filteredRows = filteredRows.filter(r => r.CIUDAD_CLEAN === filterCityForChart1);
+    return buildAvgUnitsMix(filteredRows, (r) => r.CAT_CLEAN || 'Sin Canasta');
+  }, [data, filterCityForChart1]);
 
-    const xTotals = {};
-    const xSegmentCounts = {};
-    const globalSegmentCount = {};
-    const chainSegmentInvoices = {};
-    const globalSegmentInvoices = {};
-
-    filteredRows.forEach(r => {
-      const xCol = r.CHAIN_CLEAN || 'Sin Cadena'; 
-      const seg = r.CAT_CLEAN || 'Sin Canasta'; 
-      const val = 1; 
-      
-      xTotals[xCol] = (xTotals[xCol] || 0) + val;
-      if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
-      xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
-      globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
-
-      if (!chainSegmentInvoices[xCol]) chainSegmentInvoices[xCol] = {};
-      if (!chainSegmentInvoices[xCol][seg]) chainSegmentInvoices[xCol][seg] = new Set();
-      if (r.COD_UNICO) chainSegmentInvoices[xCol][seg].add(r.COD_UNICO);
-
-      if (!globalSegmentInvoices[seg]) globalSegmentInvoices[seg] = new Set();
-      if (r.COD_UNICO) globalSegmentInvoices[seg].add(r.COD_UNICO);
-    });
-
-    const topSegments = Object.entries(globalSegmentCount).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x=>x[0]);
-    const xList = Object.keys(xTotals).sort();
-
-    const chartColumns = xList.map(xLabel => {
-      const total = xTotals[xLabel];
-      const blocks = [];
-      let remaining = 100;
-      let sumVal = 0;
-
-      topSegments.forEach((seg, idx) => {
-        const count = xSegmentCounts[xLabel][seg] || 0;
-        const perc = total > 0 ? (count / total) * 100 : 0;
-        const invCount = chainSegmentInvoices[xLabel]?.[seg]?.size || 1; 
-        const avg = count / invCount; 
-        blocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: avg });
-        remaining -= perc;
-        sumVal += count;
-      });
-
-      const otrosVal = total - sumVal;
-      if (remaining > 0.1 && otrosVal > 0) {
-        let otrosInvoicesSet = new Set();
-        Object.keys(chainSegmentInvoices[xLabel] || {}).forEach(s => {
-            if (!topSegments.includes(s)) {
-                chainSegmentInvoices[xLabel][s].forEach(id => otrosInvoicesSet.add(id));
-            }
-        });
-        const otrosInvCount = otrosInvoicesSet.size || 1;
-        blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal / otrosInvCount });
-      }
-      return { label: xLabel, total, blocks };
-    });
-
-    const generalTotal = Object.values(globalSegmentCount).reduce((sum, val) => sum + val, 0);
-    if (generalTotal > 0) {
-      const generalBlocks = [];
-      let remainingGen = 100;
-      let sumValGen = 0;
-
-      topSegments.forEach((seg, idx) => {
-        const count = globalSegmentCount[seg] || 0;
-        const perc = generalTotal > 0 ? (count / generalTotal) * 100 : 0;
-        const genInvCount = globalSegmentInvoices[seg]?.size || 1;
-        generalBlocks.push({ name: seg, perc, color: CHART_COLORS[idx % CHART_COLORS.length], val: count / genInvCount });
-        remainingGen -= perc;
-        sumValGen += count;
-      });
-      const otrosGen = generalTotal - sumValGen;
-      if (remainingGen > 0.1 && otrosGen > 0) {
-         let otrosGenInvoicesSet = new Set();
-         Object.keys(globalSegmentInvoices).forEach(s => {
-             if (!topSegments.includes(s)) {
-                 globalSegmentInvoices[s].forEach(id => otrosGenInvoicesSet.add(id));
-             }
-         });
-         const otrosGenInvCount = otrosGenInvoicesSet.size || 1;
-         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen / otrosGenInvCount });
-      }
-      chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
-    }
-
-    return { topSegments, chartColumns };
+  // NUEVO: mismo gráfico pero agrupado por CATEGORÍA (columna SUBCATEGORIA)
+  const chart1DataUnitsByCategory = useMemo(() => {
+    if (!data) return null;
+    let filteredRows = data.cleanRows;
+    if (filterCityForChart1 !== "TODAS") filteredRows = filteredRows.filter(r => r.CIUDAD_CLEAN === filterCityForChart1);
+    return buildAvgUnitsMix(filteredRows, (r) => r.SUBCAT_CLEAN || 'Sin Categoría');
   }, [data, filterCityForChart1]);
 
   const chart2Data = useMemo(() => {
@@ -1054,17 +1081,17 @@ export default function App() {
     const globalSegmentCount = {};
 
     filteredRows.forEach(r => {
-      const xCol = r.CIUDAD_CLEAN || 'Sin Ciudad'; 
-      const seg = r.CAT_CLEAN || 'Sin Canasta'; 
-      const val = r.PROD_VAL_CLEAN || 0; 
-      
+      const xCol = r.CIUDAD_CLEAN || 'Sin Ciudad';
+      const seg = r.CAT_CLEAN || 'Sin Canasta';
+      const val = r.PROD_VAL_CLEAN || 0;
+
       xTotals[xCol] = (xTotals[xCol] || 0) + val;
       if (!xSegmentCounts[xCol]) xSegmentCounts[xCol] = {};
       xSegmentCounts[xCol][seg] = (xSegmentCounts[xCol][seg] || 0) + val;
       globalSegmentCount[seg] = (globalSegmentCount[seg] || 0) + val;
     });
 
-    const topSegments = Object.entries(globalSegmentCount).sort((a,b)=>b[1]-a[1]).slice(0, 10).map(x=>x[0]);
+    const topSegments = Object.entries(globalSegmentCount).sort((a, b) => b[1] - a[1]).slice(0, 10).map(x => x[0]);
     const xList = Object.keys(xTotals).sort();
 
     const chartColumns = xList.map(xLabel => {
@@ -1072,7 +1099,6 @@ export default function App() {
       const blocks = [];
       let remaining = 100;
       let sumVal = 0;
-
       topSegments.forEach((seg, idx) => {
         const count = xSegmentCounts[xLabel][seg] || 0;
         const perc = total > 0 ? (count / total) * 100 : 0;
@@ -1080,7 +1106,6 @@ export default function App() {
         remaining -= perc;
         sumVal += count;
       });
-
       const otrosVal = total - sumVal;
       if (remaining > 0.1 && otrosVal > 0) blocks.push({ name: 'Otros', perc: remaining, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosVal });
       return { label: xLabel, total, blocks };
@@ -1100,7 +1125,7 @@ export default function App() {
       });
       const otrosGen = generalTotal - sumValGen;
       if (remainingGen > 0.1 && otrosGen > 0) {
-         generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen });
+        generalBlocks.push({ name: 'Otros', perc: remainingGen, color: 'bg-gray-300 text-gray-700 dark:bg-gray-600 dark:text-gray-200', val: otrosGen });
       }
       chartColumns.push({ label: 'GENERAL', total: generalTotal, blocks: generalBlocks, isGeneral: true });
     }
@@ -1123,16 +1148,16 @@ export default function App() {
       const val = r.PROD_VAL_CLEAN || 0;
       catTotals[cat] = (catTotals[cat] || 0) + val;
     });
-    
+
     const top5Cats = Object.entries(catTotals)
-      .sort((a,b) => b[1] - a[1])
+      .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(x => x[0]);
 
     const pies = top5Cats.map(catName => {
       const chainTotals = {};
       let totalVal = 0;
-      
+
       filteredRows.forEach(r => {
         if ((r.CAT_CLEAN || 'Sin Canasta') === catName) {
           const chain = r.CHAIN_CLEAN || 'Sin Cadena';
@@ -1142,8 +1167,8 @@ export default function App() {
         }
       });
 
-      const chains = Object.keys(chainTotals).sort((a,b) => chainTotals[b] - chainTotals[a]);
-      
+      const chains = Object.keys(chainTotals).sort((a, b) => chainTotals[b] - chainTotals[a]);
+
       const slices = chains.map((chain, idx) => {
         const globalChainIdx = data.chainList.indexOf(chain);
         const colorIdx = globalChainIdx >= 0 ? globalChainIdx : idx;
@@ -1182,97 +1207,139 @@ export default function App() {
 
   const dynamicScopeData = useMemo(() => {
     if (!data || !data.cleanRows) return null;
-    
+
     const invoicesInScope = new Set();
     const scopeProdCount = {};
     const chainCount = {};
     const cityCount = {};
     const hours = {};
     const days = {};
-    
+
     let sumInvoiceValues = 0;
     let sumBasketItems = 0;
     let totalScopeItems = 0;
 
     const allRows = data.cleanRows;
-    
-    // 1. Identificar facturas y contar métricas base para la selección actual
+
+    // 1. Identificar facturas y contar métricas base para el SEGMENTO seleccionado
     allRows.forEach(r => {
-        if (matchScope(r, selectedScopeTab)) {
-            invoicesInScope.add(r.COD_UNICO);
-            scopeProdCount[r.PROD_CLEAN] = (scopeProdCount[r.PROD_CLEAN] || 0) + 1;
-            chainCount[r.CHAIN_CLEAN] = (chainCount[r.CHAIN_CLEAN] || 0) + 1;
-            cityCount[r.CIUDAD_CLEAN] = (cityCount[r.CIUDAD_CLEAN] || 0) + 1;
-            totalScopeItems++;
-        }
+      if (matchScope(r, selectedScopeTab)) {
+        invoicesInScope.add(r.COD_UNICO);
+        scopeProdCount[r.PROD_CLEAN] = (scopeProdCount[r.PROD_CLEAN] || 0) + 1;
+        chainCount[r.CHAIN_CLEAN] = (chainCount[r.CHAIN_CLEAN] || 0) + 1;
+        cityCount[r.CIUDAD_CLEAN] = (cityCount[r.CIUDAD_CLEAN] || 0) + 1;
+        totalScopeItems++;
+      }
     });
 
     if (invoicesInScope.size === 0) return null;
 
     const top5Products = Object.entries(scopeProdCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(x => x[0]);
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(x => x[0]);
 
     // 2. Métricas por factura única
     const invoiceTotalsLocal = {};
     const invoiceItemsLocal = {};
-    
+
     allRows.forEach(r => {
-        if (invoicesInScope.has(r.COD_UNICO)) {
-            if (!invoiceTotalsLocal[r.COD_UNICO]) {
-                invoiceTotalsLocal[r.COD_UNICO] = r.VAL_CLEAN || 0;
-                
-                const h = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
-                if (h !== -1) hours[h] = (hours[h] || 0) + 1;
-                
-                const d = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
-                if (d !== 'N/A') days[d] = (days[d] || 0) + 1;
-            }
-            invoiceItemsLocal[r.COD_UNICO] = (invoiceItemsLocal[r.COD_UNICO] || 0) + 1;
+      if (invoicesInScope.has(r.COD_UNICO)) {
+        if (!invoiceTotalsLocal[r.COD_UNICO]) {
+          invoiceTotalsLocal[r.COD_UNICO] = r.VAL_CLEAN || 0;
+
+          const h = r.TIME_CLEAN ? extractHourNum(r.TIME_CLEAN) : -1;
+          if (h !== -1) hours[h] = (hours[h] || 0) + 1;
+
+          const d = r.DAY_CLEAN ? r.DAY_CLEAN.trim().charAt(0).toUpperCase() + r.DAY_CLEAN.trim().slice(1).toLowerCase() : 'N/A';
+          if (d !== 'N/A') days[d] = (days[d] || 0) + 1;
         }
+        invoiceItemsLocal[r.COD_UNICO] = (invoiceItemsLocal[r.COD_UNICO] || 0) + 1;
+      }
     });
 
     invoicesInScope.forEach(cod => {
-        sumInvoiceValues += (invoiceTotalsLocal[cod] || 0);
-        sumBasketItems += (invoiceItemsLocal[cod] || 0);
+      sumInvoiceValues += (invoiceTotalsLocal[cod] || 0);
+      sumBasketItems += (invoiceItemsLocal[cod] || 0);
     });
 
-    // 3. Generador dinámico de afinidades cruzadas para un producto
-    const getAffinity = (filterProd) => {
-        const targetInvoices = new Set();
-        if (filterProd === 'TODOS') {
-            invoicesInScope.forEach(i => targetInvoices.add(i));
-        } else {
-            allRows.forEach(r => {
-                if (invoicesInScope.has(r.COD_UNICO) && r.PROD_CLEAN === filterProd && matchScope(r, selectedScopeTab)) {
-                    targetInvoices.add(r.COD_UNICO);
-                }
-            });
-        }
-        
-        const affinityCount = {};
+    // 3. Afinidad cruzada por PRODUCTO: se mide sobre SUBCATEGORIA › SEGMENTO
+    const getAffinityByProduct = (filterProd) => {
+      const targetInvoices = new Set();
+      if (filterProd === 'TODOS') {
+        invoicesInScope.forEach(i => targetInvoices.add(i));
+      } else {
         allRows.forEach(r => {
-            if (targetInvoices.has(r.COD_UNICO)) {
-                const sub = r.SUBCAT_CLEAN || 'Sin Categoría';
-                if (!matchScope(r, selectedScopeTab) && sub !== 'Sin Categoría' && sub.toUpperCase() !== 'SIN CATEGORÍA') {
-                    if (!affinityCount[r.COD_UNICO]) affinityCount[r.COD_UNICO] = new Set();
-                    affinityCount[r.COD_UNICO].add(sub);
-                }
-            }
+          if (invoicesInScope.has(r.COD_UNICO) && r.PROD_CLEAN === filterProd && matchScope(r, selectedScopeTab)) {
+            targetInvoices.add(r.COD_UNICO);
+          }
         });
-        
-        const finalAffCount = {};
-        Object.values(affinityCount).forEach(set => {
-            set.forEach(sub => {
-                finalAffCount[sub] = (finalAffCount[sub] || 0) + 1;
-            });
+      }
+
+      const perInvoiceLabels = {};
+      allRows.forEach(r => {
+        if (targetInvoices.has(r.COD_UNICO) && !matchScope(r, selectedScopeTab)) {
+          const label = getCrossLabel(r);
+          if (!label || label.toUpperCase().startsWith('SIN CATEGORÍA')) return;
+          if (!perInvoiceLabels[r.COD_UNICO]) perInvoiceLabels[r.COD_UNICO] = new Set();
+          perInvoiceLabels[r.COD_UNICO].add(label);
+        }
+      });
+
+      const finalCount = {};
+      Object.values(perInvoiceLabels).forEach(set => {
+        set.forEach(label => { finalCount[label] = (finalCount[label] || 0) + 1; });
+      });
+
+      return Object.entries(finalCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(x => ({ name: x[0], value: targetInvoices.size > 0 ? (x[1] / targetInvoices.size) * 100 : 0 }));
+    };
+
+    // 4. Subcategorías acompañantes disponibles (todas las que aparecen en facturas del scope)
+    const companionSubsSet = new Set();
+    allRows.forEach(r => {
+      if (invoicesInScope.has(r.COD_UNICO) && !matchScope(r, selectedScopeTab)) {
+        const s = r.SUBCAT_CLEAN || '';
+        if (s && s.toUpperCase() !== 'SIN CATEGORÍA') companionSubsSet.add(s);
+      }
+    });
+    const companionSubs = Array.from(companionSubsSet).sort();
+
+    // 5. Afinidad cruzada por SUBCATEGORÍA (todas)
+    const getAffinityBySubcat = (filterSub) => {
+      const targetInvoices = new Set();
+      if (filterSub === 'TODAS') {
+        invoicesInScope.forEach(i => targetInvoices.add(i));
+      } else {
+        allRows.forEach(r => {
+          if (invoicesInScope.has(r.COD_UNICO) && (r.SUBCAT_CLEAN || '') === filterSub) {
+            targetInvoices.add(r.COD_UNICO);
+          }
         });
-        
-        return Object.entries(finalAffCount)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .map(x => ({ name: x[0], value: targetInvoices.size > 0 ? (x[1] / targetInvoices.size) * 100 : 0 }));
+      }
+
+      const perInvoiceLabels = {};
+      allRows.forEach(r => {
+        if (targetInvoices.has(r.COD_UNICO) && !matchScope(r, selectedScopeTab)) {
+          if (filterSub !== 'TODAS' && (r.SUBCAT_CLEAN || '') === filterSub) return;
+          const label = getCrossLabel(r);
+          if (!label || label.toUpperCase().startsWith('SIN CATEGORÍA')) return;
+          if (!perInvoiceLabels[r.COD_UNICO]) perInvoiceLabels[r.COD_UNICO] = new Set();
+          perInvoiceLabels[r.COD_UNICO].add(label);
+        }
+      });
+
+      const finalCount = {};
+      Object.values(perInvoiceLabels).forEach(set => {
+        set.forEach(label => { finalCount[label] = (finalCount[label] || 0) + 1; });
+      });
+
+      return Object.entries(finalCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(x => ({ name: x[0], value: targetInvoices.size > 0 ? (x[1] / targetInvoices.size) * 100 : 0 }));
     };
 
     const uniqueAllInvoicesSet = new Set();
@@ -1280,37 +1347,39 @@ export default function App() {
     const totalTotalInvoices = uniqueAllInvoicesSet.size;
 
     const getPieSlices = (countObj, colorRefList) => {
-        const total = Object.values(countObj).reduce((a,b)=>a+b, 0);
-        return Object.entries(countObj).sort((a,b)=>b[1]-a[1]).map(([name, val], idx) => ({
-            label: name,
-            value: val,
-            hexColor: HEX_COLORS[colorRefList.indexOf(name) >= 0 ? colorRefList.indexOf(name) % HEX_COLORS.length : idx % HEX_COLORS.length] || HEX_COLORS[idx % HEX_COLORS.length]
-        }));
+      return Object.entries(countObj).sort((a, b) => b[1] - a[1]).map(([name, val], idx) => ({
+        label: name,
+        value: val,
+        hexColor: HEX_COLORS[colorRefList.indexOf(name) >= 0 ? colorRefList.indexOf(name) % HEX_COLORS.length : idx % HEX_COLORS.length] || HEX_COLORS[idx % HEX_COLORS.length]
+      }));
     };
 
-    const topHourNum = Object.entries(hours).sort((a,b)=>b[1]-a[1])[0];
-    const topDayE = Object.entries(days).sort((a,b)=>b[1]-a[1])[0];
+    const topHourNum = Object.entries(hours).sort((a, b) => b[1] - a[1])[0];
+    const topDayE = Object.entries(days).sort((a, b) => b[1] - a[1])[0];
 
     const mixArray = Object.entries(scopeProdCount)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, val]) => ({ name, value: totalScopeItems > 0 ? (val / totalScopeItems) * 100 : 0 }));
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, val]) => ({ name, value: totalScopeItems > 0 ? (val / totalScopeItems) * 100 : 0 }));
 
     return {
-        penetration: totalTotalInvoices > 0 ? (invoicesInScope.size / totalTotalInvoices) * 100 : 0,
-        avgTicket: invoicesInScope.size > 0 ? sumInvoiceValues / invoicesInScope.size : 0,
-        avgItems: invoicesInScope.size > 0 ? totalScopeItems / invoicesInScope.size : 0,
-        basketSize: invoicesInScope.size > 0 ? sumBasketItems / invoicesInScope.size : 0,
-        peakHour: topHourNum ? getHourRange(parseInt(topHourNum[0])) : 'N/A',
-        peakDay: topDayE ? topDayE[0] : 'N/A',
-        mix: mixArray,
-        chainSlices: getPieSlices(chainCount, data.chainList),
-        citySlices: getPieSlices(cityCount, data.cityList),
-        top5Products,
-        affinities1: getAffinity(scopeProd1),
-        affinities2: getAffinity(scopeProd2)
+      penetration: totalTotalInvoices > 0 ? (invoicesInScope.size / totalTotalInvoices) * 100 : 0,
+      avgTicket: invoicesInScope.size > 0 ? sumInvoiceValues / invoicesInScope.size : 0,
+      avgItems: invoicesInScope.size > 0 ? totalScopeItems / invoicesInScope.size : 0,
+      basketSize: invoicesInScope.size > 0 ? sumBasketItems / invoicesInScope.size : 0,
+      peakHour: topHourNum ? getHourRange(parseInt(topHourNum[0])) : 'N/A',
+      peakDay: topDayE ? topDayE[0] : 'N/A',
+      mix: mixArray,
+      chainSlices: getPieSlices(chainCount, data.chainList),
+      citySlices: getPieSlices(cityCount, data.cityList),
+      top5Products,
+      companionSubs,
+      affinities1: getAffinityByProduct(scopeProd1),
+      affinities2: getAffinityByProduct(scopeProd2),
+      affinitiesSub1: getAffinityBySubcat(scopeSub1),
+      affinitiesSub2: getAffinityBySubcat(scopeSub2)
     };
-  }, [data, selectedScopeTab, scopeProd1, scopeProd2]);
+  }, [data, selectedScopeTab, scopeProd1, scopeProd2, scopeSub1, scopeSub2]);
 
   const handleDownloadListCSV = (listData, title, headers) => {
     if (!listData) return;
@@ -1335,7 +1404,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans p-4 sm:p-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto space-y-8">
-        
+
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3"><Store className="text-indigo-600 dark:text-indigo-400" size={32} /> Dashboard Retail Analytics</h1>
@@ -1359,7 +1428,7 @@ export default function App() {
                   Capítulo 1: Generalidades y Desempeño
                 </h2>
                 <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg border border-indigo-100 dark:border-indigo-800/50 flex-wrap">
-                  
+
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Store size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Cadena:</label>
@@ -1368,8 +1437,9 @@ export default function App() {
                       {data.chainList.map(chain => <option key={chain} value={chain}>{chain}</option>)}
                     </select>
                   </div>
+
                   <div className="hidden sm:block w-px h-6 bg-indigo-200 dark:bg-indigo-700"></div>
-                  
+
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Map size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <label className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex-shrink-0">Ciudad:</label>
@@ -1378,6 +1448,7 @@ export default function App() {
                       {data.cityList.map(city => <option key={city} value={city}>{city}</option>)}
                     </select>
                   </div>
+
                   <div className="hidden sm:block w-px h-6 bg-indigo-200 dark:bg-indigo-700"></div>
 
                   <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1410,7 +1481,6 @@ export default function App() {
                         </div>
                       </div>
                     </Card>
-
                     <Card className="bg-gradient-to-br from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 border-emerald-100 dark:border-gray-700 shadow-none">
                       <div className="flex items-center gap-4">
                         <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg"><Clock size={24} /></div>
@@ -1426,7 +1496,6 @@ export default function App() {
                         </div>
                       </div>
                     </Card>
-
                     <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-gray-800 dark:to-gray-800 border-amber-100 dark:border-gray-700 shadow-none">
                       <div className="flex items-center gap-4">
                         <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-lg"><TrendingUp size={24} /></div>
@@ -1459,16 +1528,16 @@ export default function App() {
                       <div className="col-span-1">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-2"><Tag className="text-indigo-500 dark:text-indigo-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Productos</h3></div>
-                          <button onClick={() => handleDownloadListCSV(chapter1Stats.topProducts, 'Top20_Productos', ['Producto', 'Cantidad', 'Participacion_Unidades'])} className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300" title="Descargar CSV"><Download size={14}/></button>
+                          <button onClick={() => handleDownloadListCSV(chapter1Stats.topProducts, 'Top20_Productos', ['Producto', 'Cantidad', 'Participacion_Unidades'])} className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300" title="Descargar CSV"><Download size={14} /></button>
                         </div>
-                        <div>{chapter1Stats.topProducts.map((prod, idx) => <ProgressBar key={idx} label={prod.name} value={prod.percentage} max={chapter1Stats.topProducts[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-indigo-500 dark:bg-indigo-400"/>)}</div>
+                        <div>{chapter1Stats.topProducts.map((prod, idx) => <ProgressBar key={idx} label={prod.name} value={prod.percentage} max={chapter1Stats.topProducts[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-indigo-500 dark:bg-indigo-400" />)}</div>
                       </div>
-                      
-                      {/* Top 5 Categorías */}
+
+                      {/* Top 5 Canastas */}
                       <div className="col-span-1 border-l border-r border-gray-100 dark:border-gray-700 px-0 lg:px-8">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-2"><BarChart className="text-fuchsia-500 dark:text-fuchsia-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 5 Canastas</h3></div>
-                          <button onClick={() => handleDownloadListCSV(chapter1Stats.topCategories, 'Top5_Canastas', ['Canasta', 'Cantidad', 'Participacion_Unidades'])} className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300" title="Descargar CSV"><Download size={14}/></button>
+                          <button onClick={() => handleDownloadListCSV(chapter1Stats.topCategories, 'Top5_Canastas', ['Canasta', 'Cantidad', 'Participacion_Unidades'])} className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300" title="Descargar CSV"><Download size={14} /></button>
                         </div>
                         <div>
                           {chapter1Stats.topCategories.map((cat, idx) => (
@@ -1486,66 +1555,66 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Top 20 Subcategorías */}
-                    <div className="col-span-1">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Categorías</h3></div>
-                        <button onClick={() => handleDownloadListCSV(chapter1Stats.topSubcategories, 'Top20_Categorias', ['Categoria', 'Cantidad', 'Participacion_Unidades'])} className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300" title="Descargar CSV"><Download size={14}/></button>
+                      {/* Top 20 Categorías */}
+                      <div className="col-span-1">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2"><Layers className="text-teal-500 dark:text-teal-400" size={20} /><h3 className="text-lg font-bold dark:text-gray-100">Top 20 Categorías</h3></div>
+                          <button onClick={() => handleDownloadListCSV(chapter1Stats.topSubcategories, 'Top20_Categorias', ['Categoria', 'Cantidad', 'Participacion_Unidades'])} className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300" title="Descargar CSV"><Download size={14} /></button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta categoría:</p>
+                        <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400" />)}</div>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Del total de unidades vendidas, qué porcentaje corresponde a esta categoría:</p>
-                      <div>{chapter1Stats.topSubcategories.map((subcat, idx) => <ProgressBar key={idx} label={subcat.name} value={subcat.percentage} max={100} formatValue={(v) => `${v.toFixed(1)}`} suffix="%" colorClass="bg-teal-500 dark:bg-teal-400"/>)}</div>
                     </div>
-                  </div>
 
-                  {/* VENTA CRUZADA TOP 20 */}
-                  <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
-                    <div className="flex items-start sm:items-center justify-between mb-6 gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-lg">
-                          <ShoppingCart size={20} />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold dark:text-gray-100">Venta Cruzada: Afinidades del Top 20 Categorías</h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Cuando un cliente lleva una de estas 20 categorías, ¿qué otras 10 suele incluir en su factura?</p>
-                        </div>
-                      </div>
-                      <button onClick={handleDownloadCrossSellCSV} className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 shadow-sm transition-colors text-sm font-semibold flex-shrink-0" title="Descargar matriz de cruce en CSV">
-                        <Download size={16} /> Exportar Matriz
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                      {chapter1Stats.topSubcategories.map((subcat, idx) => (
-                        <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex flex-col h-full hover:shadow-md transition-shadow">
-                          <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-600 truncate" title={subcat.name}>
-                            <span className="text-orange-500 dark:text-orange-400 mr-1">{idx + 1}.</span> {subcat.name}
-                          </h4>
-                          <div className="flex-1 flex flex-col justify-start space-y-2">
-                            {subcat.top10Affinities && subcat.top10Affinities.length > 0 ? (
-                              subcat.top10Affinities.map((aff, i) => (
-                                <ProgressBar key={i} label={aff.name} value={aff.percentage} max={subcat.top10Affinities[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-orange-400 dark:bg-orange-500" className="mb-0" />
-                              ))
-                            ) : (
-                              <div className="flex-1 flex items-center justify-center py-4">
-                                <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin cruces frecuentes</p>
-                              </div>
-                            )}
+                    {/* VENTA CRUZADA TOP 20 */}
+                    <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
+                      <div className="flex items-start sm:items-center justify-between mb-6 gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-lg">
+                            <ShoppingCart size={20} />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold dark:text-gray-100">Venta Cruzada: Afinidades del Top 20 Categorías</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Cuando un cliente lleva una de estas 20 categorías, ¿qué otras 10 suele incluir en su factura?</p>
                           </div>
                         </div>
-                      ))}
+                        <button onClick={handleDownloadCrossSellCSV} className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 shadow-sm transition-colors text-sm font-semibold flex-shrink-0" title="Descargar matriz de cruce en CSV">
+                          <Download size={16} /> Exportar Matriz
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        {chapter1Stats.topSubcategories.map((subcat, idx) => (
+                          <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600/50 flex flex-col h-full hover:shadow-md transition-shadow">
+                            <h4 className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-3 pb-2 border-b border-gray-200 dark:border-gray-600 truncate" title={subcat.name}>
+                              <span className="text-orange-500 dark:text-orange-400 mr-1">{idx + 1}.</span> {subcat.name}
+                            </h4>
+                            <div className="flex-1 flex flex-col justify-start space-y-2">
+                              {subcat.top10Affinities && subcat.top10Affinities.length > 0 ? (
+                                subcat.top10Affinities.map((aff, i) => (
+                                  <ProgressBar key={i} label={aff.name} value={aff.percentage} max={subcat.top10Affinities[0]?.percentage || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-orange-400 dark:bg-orange-500" className="mb-0" />
+                                ))
+                              ) : (
+                                <div className="flex-1 flex items-center justify-center py-4">
+                                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">Sin cruces frecuentes</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
+                      <PercentageStackedBarChart chartData={dayTrafficData} title="Distribución Tráfico por Día" description="% de Facturas de cada Cadena distribuido según el Día." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
+                      <PercentageStackedBarChart chartData={hourTrafficData} title="Distribución Tráfico por Hora" description="% de Facturas de cada Cadena distribuido en su Franja Horaria." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
+                      <PercentageStackedBarChart chartData={daySalesData} title="Distribución Ventas por Día" description="% del Dinero total de cada Cadena distribuido según el Día." icon={Calendar} isCurrency={true} hideYAxis={true} />
+                      <PercentageStackedBarChart chartData={hourSalesData} title="Distribución Ventas por Hora" description="% del Dinero total de cada Cadena distribuido en su Franja Horaria." icon={Clock} isCurrency={true} hideYAxis={true} />
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
-                    <PercentageStackedBarChart chartData={dayTrafficData} title="Distribución Tráfico por Día" description="% de Facturas de cada Cadena distribuido según el Día." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
-                    <PercentageStackedBarChart chartData={hourTrafficData} title="Distribución Tráfico por Hora" description="% de Facturas de cada Cadena distribuido en su Franja Horaria." icon={ShoppingCart} isCurrency={false} valueSuffix=" facturas" hideYAxis={true} />
-                    <PercentageStackedBarChart chartData={daySalesData} title="Distribución Ventas por Día" description="% del Dinero total de cada Cadena distribuido según el Día." icon={Calendar} isCurrency={true} hideYAxis={true} />
-                    <PercentageStackedBarChart chartData={hourSalesData} title="Distribución Ventas por Hora" description="% del Dinero total de cada Cadena distribuido en su Franja Horaria." icon={Clock} isCurrency={true} hideYAxis={true} />
-                  </div>
-
-                </div>
-              </>
-            ) : (
-              <div className="py-12 flex flex-col items-center justify-center text-center">
+                </>
+              ) : (
+                <div className="py-12 flex flex-col items-center justify-center text-center">
                   <Info size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
                   <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">Sin datos registrados</h3>
                   <p className="text-gray-500 dark:text-gray-400">No encontramos facturas para la combinación de Cadena y Ciudad seleccionada.</p>
@@ -1556,13 +1625,13 @@ export default function App() {
             {/* CAPÍTULO 2: COMPARATIVO */}
             <section className="space-y-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-l-4 border-indigo-500 pl-3">Capítulo 2: Análisis Comparativo</h2>
-              
+
               <div className="grid grid-cols-1 gap-8">
-                
+
                 <Card className="col-span-1 border-t-4 border-t-indigo-400 dark:border-t-indigo-500">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
                     <div>
-                      <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><PieChart className="text-indigo-500 dark:text-indigo-400"/> Participación en Top 5 Canastas</h3>
+                      <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800 dark:text-gray-100"><PieChart className="text-indigo-500 dark:text-indigo-400" /> Participación en Top 5 Canastas</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Distribución de las ventas ($) entre Cadenas para las 5 canastas principales.</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1576,7 +1645,7 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {topCategoryPiesData && topCategoryPiesData.length > 0 ? (
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
                       {topCategoryPiesData.map(pie => (
@@ -1588,7 +1657,7 @@ export default function App() {
                             {pie.slices.map(s => (
                               <div key={s.label} className="flex items-center justify-between text-[10px] sm:text-xs">
                                 <div className="flex items-center gap-2 truncate pr-2">
-                                  <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0`} style={{backgroundColor: s.hexColor}}></div>
+                                  <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0`} style={{ backgroundColor: s.hexColor }}></div>
                                   <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
                                 </div>
                                 <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">{pie.total > 0 ? ((s.value / pie.total) * 100).toFixed(1) : 0}%</span>
@@ -1603,68 +1672,81 @@ export default function App() {
                   )}
                 </Card>
 
-                <PercentageStackedBarChart 
-                  chartData={chart1Data} 
-                  title="Mix de Canastas por Cadena (Precio Promedio $)" 
+                <PercentageStackedBarChart
+                  chartData={chart1Data}
+                  title="Mix de Canastas por Cadena (Precio Promedio $)"
                   description="Valor promedio de un (1) producto de esta canasta en cada cadena. La barra representa la proporción del gasto."
-                  icon={BarChart} 
+                  icon={BarChart}
                   filterLabel="Filtrar por Ciudad"
-                  filterValue={filterCityForChart1} 
-                  setFilterValue={setFilterCityForChart1} 
-                  filterOptions={data.cityList} 
+                  filterValue={filterCityForChart1}
+                  setFilterValue={setFilterCityForChart1}
+                  filterOptions={data.cityList}
                   defaultFilterText="TODAS LAS CIUDADES"
                   isCurrency={true}
                   showAverageInsteadOfPercentage={true}
                 />
 
-                <PercentageStackedBarChart 
-                  chartData={chart1DataUnits} 
-                  title="Mix de Canastas por Cadena (Promedio Unidades)" 
+                <PercentageStackedBarChart
+                  chartData={chart1DataUnits}
+                  title="Mix de Canastas por Cadena (Promedio Unidades)"
                   description="Promedio de unidades (ítems) aportados por canasta por cada factura que la incluye."
-                  icon={Layers} 
+                  icon={Layers}
                   filterLabel="Filtrar por Ciudad"
-                  filterValue={filterCityForChart1} 
-                  setFilterValue={setFilterCityForChart1} 
-                  filterOptions={data.cityList} 
+                  filterValue={filterCityForChart1}
+                  setFilterValue={setFilterCityForChart1}
+                  filterOptions={data.cityList}
                   defaultFilterText="TODAS LAS CIUDADES"
                   isCurrency={false}
                   valueSuffix=" unid."
                   showAverageInsteadOfPercentage={true}
                 />
 
-                <PercentageStackedBarChart 
-                  chartData={chart2Data} 
-                  title="Distribución de Ventas por Ciudad" 
+                {/* NUEVO: réplica del mix de unidades, ahora por CATEGORÍA (columna SUBCATEGORIA) */}
+                <PercentageStackedBarChart
+                  chartData={chart1DataUnitsByCategory}
+                  title="Mix de Categorías por Cadena (Promedio Unidades)"
+                  description="Promedio de unidades (ítems) aportados por categoría por cada factura que la incluye. Top 10 categorías + Otros."
+                  icon={Utensils}
+                  filterLabel="Filtrar por Ciudad"
+                  filterValue={filterCityForChart1}
+                  setFilterValue={setFilterCityForChart1}
+                  filterOptions={data.cityList}
+                  defaultFilterText="TODAS LAS CIUDADES"
+                  isCurrency={false}
+                  valueSuffix=" unid."
+                  showAverageInsteadOfPercentage={true}
+                />
+
+                <PercentageStackedBarChart
+                  chartData={chart2Data}
+                  title="Distribución de Ventas por Ciudad"
                   description="Mix porcentual de ingresos (dinero) por canasta observando una Cadena específica a través de las ciudades."
-                  icon={Map} 
+                  icon={Map}
                   filterLabel="Filtrar por Cadena"
-                  filterValue={filterChainForChart2} 
-                  setFilterValue={setFilterChainForChart2} 
-                  filterOptions={data.chainList} 
+                  filterValue={filterChainForChart2}
+                  setFilterValue={setFilterChainForChart2}
+                  filterOptions={data.chainList}
                   defaultFilterText="TODAS LAS CADENAS"
                   isCurrency={true}
                 />
               </div>
             </section>
 
-            {/* CAPÍTULO 3: SCOPE DINÁMICO UNIFICADO */}
+            {/* CAPÍTULO 3: SCOPE DINÁMICO POR SEGMENTO */}
             <section className="space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-l-4 border-amber-500 pl-3">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">
-                  Capítulo 3: Análisis Deep Dive (Scope)
+                  Capítulo 3: Análisis Deep Dive (Scope por Segmento)
                 </h2>
                 <div className="flex items-center gap-3 bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm w-full sm:w-auto">
                   <ChefHat size={18} className="text-amber-500 hidden sm:block" />
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300 flex-shrink-0">Categoría a Analizar:</label>
-                  <select 
-                    value={selectedScopeTab} 
+                  <label className="text-sm font-medium text-gray-600 dark:text-gray-300 flex-shrink-0">Segmento a Analizar:</label>
+                  <select
+                    value={selectedScopeTab}
                     onChange={(e) => setSelectedScopeTab(e.target.value)}
                     className="bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-700/50 rounded-md focus:ring-0 text-sm font-bold cursor-pointer w-full sm:w-auto shadow-inner py-1.5"
                   >
-                    <option value="HARINAS">HARINAS</option>
-                    <option value="PASTA">PASTAS</option>
-                    <option value="ACEITES">ACEITES</option>
-                    <option value="ESPARCIBLES">MARGARINAS ESPARCIBLES</option>
+                    {scopeOptions.map(seg => <option key={seg} value={seg}>{seg}</option>)}
                   </select>
                 </div>
               </div>
@@ -1673,9 +1755,9 @@ export default function App() {
                 <Card className="border-t-4 border-t-amber-400 dark:border-t-amber-500">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                      <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full"><Info size={28}/></div>
+                      <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-full"><Info size={28} /></div>
                       <div>
-                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 uppercase">Scope: {selectedScopeTab}</h3>
+                        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 uppercase">Segmento: {selectedScopeTab}</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Presente en el <span className="font-bold text-amber-600 dark:text-amber-400">{dynamicScopeData.penetration.toFixed(1)}%</span> de las facturas en toda la muestra.</p>
                       </div>
                     </div>
@@ -1688,7 +1770,7 @@ export default function App() {
                     </div>
                     <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
                     <div className="flex-1 text-center min-w-[80px]">
-                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Ítems promedio de esta categoría">Ítems Scope</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold" title="Ítems promedio de este segmento">Ítems Segmento</p>
                       <p className="text-base sm:text-lg font-bold dark:text-gray-100">{formatNumber(dynamicScopeData.avgItems)}</p>
                     </div>
                     <div className="w-px bg-gray-200 dark:bg-gray-600 hidden sm:block"></div>
@@ -1710,44 +1792,47 @@ export default function App() {
 
                   <div className="mb-8">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-md font-bold flex items-center gap-2 dark:text-gray-200"><Tag size={18} className="text-amber-500 dark:text-amber-400"/> Mix de Top 5 Productos (% unidades)</h4>
-                      <button onClick={() => handleDownloadListCSV(dynamicScopeData.mix, `Mix_Productos_${selectedScopeTab}`, ['Producto', 'Porcentaje'])} className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300" title="Descargar Mix CSV"><Download size={14}/></button>
+                      <h4 className="text-md font-bold flex items-center gap-2 dark:text-gray-200"><Tag size={18} className="text-amber-500 dark:text-amber-400" /> Mix de Top 5 Productos (% unidades)</h4>
+                      <button onClick={() => handleDownloadListCSV(dynamicScopeData.mix, `Mix_Productos_${selectedScopeTab}`, ['Producto', 'Porcentaje'])} className="p-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300" title="Descargar Mix CSV"><Download size={14} /></button>
                     </div>
                     {dynamicScopeData.mix.map((item, idx) => (
-                      <ProgressBar 
-                        key={idx} 
-                        label={item.name} 
-                        value={item.value} 
-                        max={Math.max(...dynamicScopeData.mix.map(i=>i.value))} 
-                        formatValue={(v)=>`${v.toFixed(1)}%`} 
+                      <ProgressBar
+                        key={idx}
+                        label={item.name}
+                        value={item.value}
+                        max={Math.max(...dynamicScopeData.mix.map(i => i.value))}
+                        formatValue={(v) => `${v.toFixed(1)}%`}
                         colorClass={CHART_COLORS[idx % CHART_COLORS.length]}
                       />
                     ))}
                   </div>
 
-                  {/* COMPARADOR CRUZADO DINÁMICO */}
+                  {/* COMPARADOR CRUZADO POR PRODUCTO (mide SUBCATEGORIA › SEGMENTO) */}
                   <div className="bg-gray-50/50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 rounded-xl p-4 sm:p-6 mb-8">
-                    <h4 className="text-md font-bold mb-6 flex items-center gap-2 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-3">
-                      <Layers size={18} className="text-indigo-500 dark:text-indigo-400"/> Comparador de Venta Cruzada por Producto
-                    </h4>
-                    
+                    <div className="border-b border-gray-200 dark:border-gray-700 pb-3 mb-6">
+                      <h4 className="text-md font-bold flex items-center gap-2 dark:text-gray-200">
+                        <Layers size={18} className="text-indigo-500 dark:text-indigo-400" /> Comparador de Venta Cruzada por Producto
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Los cruces se miden sobre <span className="font-semibold">Categoría › Segmento</span>: qué se lleva de otros segmentos y sus categorías.</p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {/* Lado A */}
                       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50">
                         <div className="mb-5 flex flex-col space-y-2">
                           <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">¿Qué más se compra junto con...?</label>
-                          <select 
-                            value={scopeProd1} 
+                          <select
+                            value={scopeProd1}
                             onChange={(e) => setScopeProd1(e.target.value)}
                             className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md p-2 text-sm font-semibold text-gray-800 dark:text-gray-200 w-full shadow-inner focus:ring-amber-500 truncate"
                           >
-                            <option value="TODOS">Toda la categoría ({selectedScopeTab})</option>
+                            <option value="TODOS">Todo el segmento ({selectedScopeTab})</option>
                             {dynamicScopeData.top5Products.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
                         </div>
                         <div>
                           {dynamicScopeData.affinities1.length > 0 ? dynamicScopeData.affinities1.map((p, idx) => (
-                            <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.affinities1[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-indigo-400 dark:bg-indigo-500"/>
+                            <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.affinities1[0]?.value || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-indigo-400 dark:bg-indigo-500" />
                           )) : <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4 italic">No hay suficientes cruces.</p>}
                         </div>
                       </div>
@@ -1756,18 +1841,70 @@ export default function App() {
                       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50">
                         <div className="mb-5 flex flex-col space-y-2">
                           <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">¿Qué más se compra junto con...?</label>
-                          <select 
-                            value={scopeProd2} 
+                          <select
+                            value={scopeProd2}
                             onChange={(e) => setScopeProd2(e.target.value)}
                             className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md p-2 text-sm font-semibold text-gray-800 dark:text-gray-200 w-full shadow-inner focus:ring-amber-500 truncate"
                           >
-                            <option value="TODOS">Toda la categoría ({selectedScopeTab})</option>
+                            <option value="TODOS">Todo el segmento ({selectedScopeTab})</option>
                             {dynamicScopeData.top5Products.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
                         </div>
                         <div>
                           {dynamicScopeData.affinities2.length > 0 ? dynamicScopeData.affinities2.map((p, idx) => (
-                            <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.affinities2[0]?.value || 100} formatValue={(v)=>`${v.toFixed(1)}%`} colorClass="bg-teal-400 dark:bg-teal-500"/>
+                            <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.affinities2[0]?.value || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-teal-400 dark:bg-teal-500" />
+                          )) : <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4 italic">No hay suficientes cruces.</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* NUEVO: COMPARADOR CRUZADO POR CATEGORÍA (todas las subcategorías) */}
+                  <div className="bg-gray-50/50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 rounded-xl p-4 sm:p-6 mb-8">
+                    <div className="border-b border-gray-200 dark:border-gray-700 pb-3 mb-6">
+                      <h4 className="text-md font-bold flex items-center gap-2 dark:text-gray-200">
+                        <Utensils size={18} className="text-fuchsia-500 dark:text-fuchsia-400" /> Comparador de Venta Cruzada por Categoría
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Mismo cruce, pero eligiendo entre <span className="font-semibold">todas las categorías</span> presentes en las facturas de {selectedScopeTab}.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Lado A */}
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50">
+                        <div className="mb-5 flex flex-col space-y-2">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">¿Qué más se compra junto con...?</label>
+                          <select
+                            value={scopeSub1}
+                            onChange={(e) => setScopeSub1(e.target.value)}
+                            className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md p-2 text-sm font-semibold text-gray-800 dark:text-gray-200 w-full shadow-inner focus:ring-fuchsia-500 truncate"
+                          >
+                            <option value="TODAS">Todo el segmento ({selectedScopeTab})</option>
+                            {dynamicScopeData.companionSubs.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          {dynamicScopeData.affinitiesSub1.length > 0 ? dynamicScopeData.affinitiesSub1.map((p, idx) => (
+                            <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.affinitiesSub1[0]?.value || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-fuchsia-400 dark:bg-fuchsia-500" />
+                          )) : <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4 italic">No hay suficientes cruces.</p>}
+                        </div>
+                      </div>
+
+                      {/* Lado B */}
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50">
+                        <div className="mb-5 flex flex-col space-y-2">
+                          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">¿Qué más se compra junto con...?</label>
+                          <select
+                            value={scopeSub2}
+                            onChange={(e) => setScopeSub2(e.target.value)}
+                            className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md p-2 text-sm font-semibold text-gray-800 dark:text-gray-200 w-full shadow-inner focus:ring-fuchsia-500 truncate"
+                          >
+                            <option value="TODAS">Todo el segmento ({selectedScopeTab})</option>
+                            {dynamicScopeData.companionSubs.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          {dynamicScopeData.affinitiesSub2.length > 0 ? dynamicScopeData.affinitiesSub2.map((p, idx) => (
+                            <ProgressBar key={idx} label={p.name} value={p.value} max={dynamicScopeData.affinitiesSub2[0]?.value || 100} formatValue={(v) => `${v.toFixed(1)}%`} colorClass="bg-cyan-400 dark:bg-cyan-500" />
                           )) : <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4 italic">No hay suficientes cruces.</p>}
                         </div>
                       </div>
@@ -1782,11 +1919,11 @@ export default function App() {
                         {dynamicScopeData.chainSlices.map(s => (
                           <div key={s.label} className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2 truncate pr-2">
-                              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div>
+                              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: s.hexColor }}></div>
                               <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
                             </div>
                             <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">
-                              {((s.value / dynamicScopeData.chainSlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%
+                              {((s.value / dynamicScopeData.chainSlices.reduce((a, b) => a + b.value, 0)) * 100).toFixed(1)}%
                             </span>
                           </div>
                         ))}
@@ -1799,11 +1936,11 @@ export default function App() {
                         {dynamicScopeData.citySlices.map(s => (
                           <div key={s.label} className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2 truncate pr-2">
-                              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{backgroundColor: s.hexColor}}></div>
+                              <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: s.hexColor }}></div>
                               <span className="truncate text-gray-600 dark:text-gray-300 font-medium" title={s.label}>{s.label}</span>
                             </div>
                             <span className="font-bold text-gray-700 dark:text-gray-200 flex-shrink-0">
-                              {((s.value / dynamicScopeData.citySlices.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(1)}%
+                              {((s.value / dynamicScopeData.citySlices.reduce((a, b) => a + b.value, 0)) * 100).toFixed(1)}%
                             </span>
                           </div>
                         ))}
@@ -1813,9 +1950,9 @@ export default function App() {
                 </Card>
               ) : (
                 <Card className="flex flex-col items-center justify-center p-12">
-                   <ChefHat size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
-                   <h3 className="text-lg font-bold text-gray-600 dark:text-gray-300">Sin datos de {selectedScopeTab}</h3>
-                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">El archivo actual no contiene subcategorías etiquetadas como tal para generar este scope.</p>
+                  <ChefHat size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
+                  <h3 className="text-lg font-bold text-gray-600 dark:text-gray-300">Sin datos de {selectedScopeTab}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">El archivo actual no tiene filas con SEGMENTO = "{selectedScopeTab}". Revisa que la columna SEGMENTO exista y esté diligenciada.</p>
                 </Card>
               )}
             </section>
